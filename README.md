@@ -8,36 +8,41 @@
 
 ## 🌟 Features
 
-### 👨 Dad Mode
-A dedicated experience for fathers to be part of the journey.
-- **Seva Tracker**: Gamified tracking of support tasks to earn "Seva Points".
-- **Pitra Vani**: Record voice messages and promises for the unborn child.
-- **Kick Game**: Interact with the baby by tracking kicks.
-- **Dad Jokes**: A daily dose of humor to keep the atmosphere light.
+### � Mom Mode
+Designed to nurture the mother and child through four pillars of well-being.
 
-### 🧘 Home Tab (Physical & Bio-Rhythm)
+#### 🧘 Physical & Bio-Rhythm (Home Tab)
 - **Sattvic Diet Planner**: Recipes for pure, nutritious food.
 - **Yoga for Two**: Trimester-specific yoga poses with benefits.
 - **Daily Sankalpa**: Start the day with a positive intention.
 - **Mood Tracker**: Log and visualize emotional well-being.
 
-### 🧠 Learn Tab (Math & Logic)
+#### 🧠 Math & Logic (Learn Tab)
 - **Einstein Hour**: Logic puzzles and brain teasers.
 - **Rhythmic Math**: Learn math concepts through rhythm and music.
 - **Financial Wisdom**: Tips for financial planning for new parents.
 - **Creative Visualization**: AI-generated art prompts.
 
-### ❤️ Connect Tab (Emotional Bonding)
+#### ❤️ Emotional Bonding (Connect Tab)
 - **Garbh Samvad**: Chat interface to "talk" to your baby.
 - **Scrapbook**: A timeline of memories and milestones.
 - **Labor Prep**: Contraction timer and labor visualization.
 - **Kick Counter**: Track baby's movements.
 
-### 🌟 Soul Tab (Spirituality)
+#### 🌟 Spirituality (Soul Tab)
 - **Raaga Ritu**: Classical music therapy.
 - **Mantra Naad**: Chanting counter and player.
 - **Inner Journeys**: Guided visualizations.
 - **Dream Journal**: Record and interpret pregnancy dreams.
+
+### 👨 Dad Mode
+A dedicated experience for fathers to be an active part of the pregnancy journey.
+- **Seva Tracker**: Gamified tracking of support tasks to earn "Seva Points".
+- **Pitra Vani**: Record voice messages and promises for the unborn child.
+- **Kick Game**: Interact with the baby by tracking kicks.
+- **Dad Jokes**: A daily dose of humor to keep the atmosphere light.
+- **Bio-Rhythm Sync**: Breathing exercises to sync with the partner.
+- **Protector Visualization**: Guided meditation for the father.
 
 ### ✨ Smart Features
 - **Offline Fallback**: Verified, high-quality content is available even when AI generation is offline.
@@ -60,7 +65,7 @@ A dedicated experience for fathers to be part of the journey.
 1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd garbhveda---womb-wisdom
+   cd garbhveda-womb-wisdom
    ```
 
 2. **Install dependencies:**
@@ -87,7 +92,8 @@ A dedicated experience for fathers to be part of the journey.
 
 1. **Onboarding**: Enter your name and current pregnancy week to personalize your journey.
 2. **Daily Activities**: Navigate through the tabs (Home, Learn, Connect, Soul) to complete your daily activities.
-3. **Reset**: You can reset your profile from the Home screen if needed.
+3. **Switch Role**: Toggle between Mother and Father modes using the profile icon or switch button.
+4. **Reset**: You can reset your profile from the Home screen if needed.
 
 
 ## Status
