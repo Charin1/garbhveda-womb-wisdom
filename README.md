@@ -8,7 +8,7 @@
 
 ## 🌟 Features
 
-### � Mom Mode
+### 👩 Mom Mode
 Designed to nurture the mother and child through four pillars of well-being.
 
 #### 🧘 Physical & Bio-Rhythm (Home Tab)
