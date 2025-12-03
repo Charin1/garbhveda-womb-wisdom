@@ -1,5 +1,5 @@
-import React from 'react';
-import { Utensils, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Utensils, Check, RefreshCw } from 'lucide-react';
 
 const SATTVIC_RECIPES = [
     {
@@ -22,7 +22,37 @@ const SATTVIC_RECIPES = [
         benefits: 'Iron & Omega-3',
         ingredients: ['1 cup pomegranate', '5 walnuts', 'Mint leaves'],
         time: '5 mins'
+    },
+    {
+        id: 'ghee_rice',
+        title: 'Turmeric Ghee Rice',
+        benefits: 'Anti-inflammatory & energy',
+        ingredients: ['1 cup rice', '1 tbsp ghee', '1/2 tsp turmeric', 'Cumin'],
+        time: '15 mins'
+    },
+    {
+        id: 'dates_milk',
+        title: 'Dates & Milk Smoothie',
+        benefits: 'Calcium & natural sugars',
+        ingredients: ['3 dates', '1 cup milk', 'Cardamom powder'],
+        time: '5 mins'
+    },
+    {
+        id: 'vegetable_soup',
+        title: 'Gentle Vegetable Broth',
+        benefits: 'Hydration & minerals',
+        ingredients: ['Carrots', 'Spinach', 'Ginger', 'Salt'],
+        time: '20 mins'
     }
+];
+
+const VEDIC_QUOTES = [
+    '"When the diet is pure, the mind becomes pure." - Chandogya Upanishad',
+    '"You are what you eat. By food alone can you become pure." - Taittiriya Upanishad',
+    '"Food is Brahman. From food all beings are born." - Taittiriya Upanishad',
+    '"Let food be thy medicine and medicine be thy food." - Ancient Wisdom',
+    '"The wise eat to live, not live to eat." - Bhagavad Gita',
+    '"Pure food creates pure thoughts and pure thoughts lead to God." - Vedic Saying'
 ];
 
 interface DietPlannerProps {
@@ -31,19 +61,49 @@ interface DietPlannerProps {
 }
 
 const DietPlanner: React.FC<DietPlannerProps> = ({ onBack, week }) => {
-    // Simple logic to rotate recipes based on week to simulate dynamic content
-    const rotationIndex = week % 3;
-    const featuredRecipes = [
-        SATTVIC_RECIPES[rotationIndex],
-        SATTVIC_RECIPES[(rotationIndex + 1) % 3]
-    ];
+    // State for random recipe selection
+    const [recipeIndices, setRecipeIndices] = useState<number[]>(() => {
+        const index = week % SATTVIC_RECIPES.length;
+        return [index, (index + 1) % SATTVIC_RECIPES.length];
+    });
+    const [quoteIndex, setQuoteIndex] = useState<number>(() => week % VEDIC_QUOTES.length);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        setTimeout(() => {
+            // Get two random unique indices for recipes
+            const available = Array.from({ length: SATTVIC_RECIPES.length }, (_, i) => i);
+            const firstIndex = available[Math.floor(Math.random() * available.length)];
+            available.splice(available.indexOf(firstIndex), 1);
+            const secondIndex = available[Math.floor(Math.random() * available.length)];
+            setRecipeIndices([firstIndex, secondIndex]);
+
+            // Get random quote index
+            setQuoteIndex(Math.floor(Math.random() * VEDIC_QUOTES.length));
+
+            setIsRefreshing(false);
+        }, 500);
+    };
+
+    const featuredRecipes = recipeIndices.map(idx => SATTVIC_RECIPES[idx]);
 
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
             {/* Header */}
-            <div className="flex items-center gap-2 text-sage-600 cursor-pointer mb-4" onClick={onBack}>
-                <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
-                <span className="font-semibold text-sm">Back to Routine</span>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sage-600 cursor-pointer" onClick={onBack}>
+                    <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
+                    <span className="font-semibold text-sm">Back to Routine</span>
+                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-2 rounded-full bg-sage-100 hover:bg-sage-200 transition-all disabled:opacity-50"
+                    title="Refresh recipes"
+                >
+                    <RefreshCw size={18} className={`text-sage-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
             </div>
 
             <div className="text-center mb-6">
@@ -82,7 +142,7 @@ const DietPlanner: React.FC<DietPlannerProps> = ({ onBack, week }) => {
             </div>
 
             <div className="bg-saffron-50 p-4 rounded-xl border border-saffron-100 text-center">
-                <p className="text-sm text-saffron-800 italic">"When the diet is pure, the mind becomes pure." - Chandogya Upanishad</p>
+                <p className="text-sm text-saffron-800 italic">{VEDIC_QUOTES[quoteIndex]}</p>
             </div>
         </div>
     );

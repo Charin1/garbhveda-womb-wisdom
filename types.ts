@@ -82,22 +82,6 @@ export interface PitraVaniRecord {
   audioBlob?: Blob;
 }
 
-export interface UserProfile {
-  name: string;
-  role: UserRole;
-  partnerName?: string;
-  pregnancyWeek: number;
-  kickCount: number;
-  lastKickDate: string;
-  moodHistory: { date: string; mood: Mood }[];
-  dreamJournal: Dream[];
-  // Dad Specific
-  sevaPoints: number;
-  sevaHistory: string[]; // List of completed task IDs
-  promises: PromiseRecord[];
-  pitraVaniHistory: PitraVaniRecord[];
-}
-
 export interface AudioTrack {
   id: string;
   title: string;
@@ -140,4 +124,15 @@ export interface UserProfile {
   sevaHistory: string[]; // List of completed task IDs
   promises: PromiseRecord[];
   pitraVaniHistory: PitraVaniRecord[];
+}
+
+// Comprehensive app state for persistent storage
+export interface AppState {
+  version: number; // For future migrations
+  user: UserProfile | null;
+  activeTab: AppTab;
+  volume: number;
+  generatedImages: { [activityId: string]: string }; // Map of activity ID to image URL
+  completedActivities: string[]; // Activity IDs
+  lastSync: string; // ISO timestamp
 }

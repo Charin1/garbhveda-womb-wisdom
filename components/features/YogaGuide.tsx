@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Play } from 'lucide-react';
+import { Activity, Play, RefreshCw } from 'lucide-react';
 
 const YOGA_POSES = [
     {
@@ -8,7 +8,7 @@ const YOGA_POSES = [
         subtitle: 'Butterfly Pose',
         benefits: 'Opens hips, relieves fatigue',
         trimester: 'All Trimesters',
-        image: '🧘‍♀️' // Placeholder for 3D animation
+        image: '🧘‍♀️'
     },
     {
         id: 'cat_cow',
@@ -25,6 +25,30 @@ const YOGA_POSES = [
         benefits: 'Improves posture & balance',
         trimester: '1st Trimester',
         image: '🏔️'
+    },
+    {
+        id: 'child',
+        title: 'Balasana',
+        subtitle: 'Child\'s Pose',
+        benefits: 'Relaxes spine, calms mind',
+        trimester: 'All Trimesters',
+        image: '🌙'
+    },
+    {
+        id: 'squat',
+        title: 'Malasana',
+        subtitle: 'Yogi Squat',
+        benefits: 'Opens pelvis, prepares for birth',
+        trimester: '3rd Trimester',
+        image: '🦋'
+    },
+    {
+        id: 'warrior',
+        title: 'Virabhadrasana',
+        subtitle: 'Warrior II',
+        benefits: 'Builds strength, stamina',
+        trimester: '1st & 2nd Trimester',
+        image: '⚔️'
     }
 ];
 
@@ -35,23 +59,43 @@ interface YogaGuideProps {
 
 const YogaGuide: React.FC<YogaGuideProps> = ({ onBack, trimester }) => {
     const [activePose, setActivePose] = useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Filter poses based on trimester
-    // Note: In a real app, we'd have more robust tagging. Here we do simple string matching or show all if generic.
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        setTimeout(() => {
+            setRefreshKey(prev => prev + 1);
+            setActivePose(null);
+            setIsRefreshing(false);
+        }, 500);
+    };
+
+    // Filter poses based on trimester - shuffle for variety
     const filteredPoses = YOGA_POSES.filter(pose => {
         if (pose.trimester.includes("All")) return true;
         if (trimester === 1 && pose.trimester.includes("1st")) return true;
         if (trimester === 2 && pose.trimester.includes("2nd")) return true;
         if (trimester === 3 && pose.trimester.includes("3rd")) return true;
         return false;
-    });
+    }).sort(() => Math.random() - 0.5 + refreshKey * 0); // Shuffle based on refreshKey
 
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
             {/* Header */}
-            <div className="flex items-center gap-2 text-sage-600 cursor-pointer mb-4" onClick={onBack}>
-                <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
-                <span className="font-semibold text-sm">Back to Routine</span>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sage-600 cursor-pointer" onClick={onBack}>
+                    <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
+                    <span className="font-semibold text-sm">Back to Routine</span>
+                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-2 rounded-full bg-sage-100 hover:bg-sage-200 transition-all disabled:opacity-50"
+                    title="Refresh poses"
+                >
+                    <RefreshCw size={18} className={`text-sage-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
             </div>
 
             <div className="text-center mb-6">

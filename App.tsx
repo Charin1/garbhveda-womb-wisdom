@@ -5,10 +5,12 @@ import BottomNav from './components/BottomNav';
 import MoodTracker from './components/MoodTracker';
 import DreamJournal from './components/DreamJournal';
 import DadDashboard from './components/DadDashboard';
+import ResetButton from './components/ResetButton';
 import {
     Activity, ActivityCategory, UserProfile, AppTab, Mood, DailyCurriculum, Dream, UserRole
 } from './types';
 import { generateDailyCurriculum, generateAudio, generateImage } from './services/geminiService';
+import { storage } from './services/storageService';
 import { FALLBACK_CURRICULUM } from './data/curriculum';
 import { AUDIO_TRACKS } from './data/audioTracks';
 import { useAudio } from './hooks/useAudio';
@@ -24,7 +26,7 @@ import SoulTab from './components/tabs/SoulTab';
 
 const App: React.FC = () => {
     // --- State Management ---
-    const [activeTab, setActiveTab] = useState<AppTab>(AppTab.HOME);
+    const [activeTab, setActiveTab] = useState<AppTab>(storage.getActiveTab());
     const [user, setUser] = useState<UserProfile | null>(null);
 
     // Data State
@@ -34,7 +36,8 @@ const App: React.FC = () => {
 
     // Feature Specific State
     const [currentMood, setCurrentMood] = useState<Mood | null>(null);
-    const [tempName, setTempName] = useState('');
+    const [tempMotherName, setTempMotherName] = useState('');
+    const [tempFatherName, setTempFatherName] = useState('');
     const [tempRole, setTempRole] = useState<UserRole>(UserRole.MOM);
     const [tempWeek, setTempWeek] = useState(12);
 
@@ -47,31 +50,16 @@ const App: React.FC = () => {
 
     // --- Initialization ---
     useEffect(() => {
-        const savedUser = localStorage.getItem('garbhVedaUser');
+        // Load user from storage service (handles migration automatically)
+        const savedUser = storage.getUser();
         if (savedUser) {
-            const parsedUser = JSON.parse(savedUser);
-            // Ensure dreamJournal exists for backward compatibility
-            if (!parsedUser.dreamJournal) {
-                parsedUser.dreamJournal = [];
-            }
-            // Ensure role exists
-            if (!parsedUser.role) {
-                parsedUser.role = UserRole.MOM;
-            }
-            // Ensure Dad Mode fields exist
-            if (parsedUser.sevaPoints === undefined) parsedUser.sevaPoints = 0;
-            if (!parsedUser.sevaHistory) parsedUser.sevaHistory = [];
-            if (!parsedUser.promises) parsedUser.promises = [];
-            if (!parsedUser.pitraVaniHistory) parsedUser.pitraVaniHistory = [];
-
-            // Ensure GarbhVeda 2.0 fields exist
-            if (!parsedUser.chatHistory) parsedUser.chatHistory = [];
-            if (!parsedUser.scrapbook) parsedUser.scrapbook = [];
-            if (!parsedUser.yogaProgress) parsedUser.yogaProgress = [];
-            if (!parsedUser.dietFavorites) parsedUser.dietFavorites = [];
-
-            setUser(parsedUser);
+            console.log('[App] User loaded from storage:', savedUser.name);
+            setUser(savedUser);
         }
+
+        // Load volume setting
+        const savedVolume = storage.getVolume();
+        setVolume(savedVolume);
     }, []);
 
     useEffect(() => {
@@ -98,15 +86,22 @@ const App: React.FC = () => {
             setCurriculum(FALLBACK_CURRICULUM);
         }
 
-        // FOR DEMO: Uncomment to force verified links
-        // setCurriculum(FALLBACK_CURRICULUM);
-
         setIsLoading(false);
+    };
+
+    const handleRefreshCurriculum = async () => {
+        console.log('[App] Refreshing curriculum...');
+        await loadCurriculum();
     };
 
     const handleOnboarding = () => {
         const newUser: UserProfile = {
-            name: tempName || (tempRole === UserRole.MOM ? 'Mother' : 'Father'),
+            name: tempRole === UserRole.MOM
+                ? (tempMotherName || 'Mother')
+                : (tempFatherName || 'Father'),
+            partnerName: tempRole === UserRole.MOM
+                ? (tempFatherName || undefined)
+                : (tempMotherName || undefined),
             role: tempRole,
             pregnancyWeek: tempWeek,
             kickCount: 0,
@@ -125,13 +120,33 @@ const App: React.FC = () => {
             pitraVaniHistory: []
         };
         console.log("[App] Creating new user profile:", newUser);
-        localStorage.setItem('garbhVedaUser', JSON.stringify(newUser));
+        storage.setUser(newUser);
         setUser(newUser);
     };
 
     const updateUser = (updatedUser: UserProfile) => {
         setUser(updatedUser);
-        localStorage.setItem('garbhVedaUser', JSON.stringify(updatedUser));
+        storage.setUser(updatedUser);
+    };
+
+    const handleReset = () => {
+        console.log('[App] Resetting all data');
+        storage.resetAll();
+        setUser(null);
+        setActiveTab(AppTab.HOME);
+        setCurriculum(null);
+        setGeneratedImageUrl(null);
+        setCurrentMood(null);
+    };
+
+    const handleTabChange = (tab: AppTab) => {
+        setActiveTab(tab);
+        storage.setActiveTab(tab);
+    };
+
+    const handleVolumeChange = (newVolume: number) => {
+        setVolume(newVolume);
+        storage.setVolume(newVolume);
     };
 
     const handleKick = () => {
@@ -172,8 +187,16 @@ const App: React.FC = () => {
     const switchRole = () => {
         if (!user) return;
         const newRole = user.role === UserRole.MOM ? UserRole.DAD : UserRole.MOM;
-        console.log(`[App] Switching role to: ${newRole}`);
-        const updatedUser = { ...user, role: newRole };
+        console.log(`[App] Switching role from ${user.role} to ${newRole}`);
+
+        // Swap names when switching roles
+        const updatedUser = {
+            ...user,
+            role: newRole,
+            name: user.partnerName || user.name, // Use partner name as new user name
+            partnerName: user.name // Current name becomes partner name
+        };
+
         updateUser(updatedUser);
     };
 
@@ -206,7 +229,7 @@ const App: React.FC = () => {
                         <p className="text-gray-400 tracking-widest text-sm uppercase">Womb Wisdom</p>
                     </div>
                     <div className="bg-white p-8 rounded-3xl shadow-xl shadow-sage-50 border border-white">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">My Role</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">I am the...</label>
                         <div className="flex gap-4 mb-6">
                             <button
                                 onClick={() => setTempRole(UserRole.MOM)}
@@ -222,13 +245,22 @@ const App: React.FC = () => {
                             </button>
                         </div>
 
-                        <label className="block text-sm font-medium text-gray-700 mb-2">My Name</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Mother's Name</label>
                         <input
-                            className="w-full p-4 mb-6 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-sage-200 outline-none"
-                            value={tempName}
-                            onChange={e => setTempName(e.target.value)}
-                            placeholder={tempRole === UserRole.MOM ? "e.g. Aditi" : "e.g. Rohan"}
+                            className="w-full p-4 mb-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-rose-quartz-200 outline-none"
+                            value={tempMotherName}
+                            onChange={e => setTempMotherName(e.target.value)}
+                            placeholder="e.g. Aditi"
                         />
+
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Father's Name</label>
+                        <input
+                            className="w-full p-4 mb-6 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-sky-200 outline-none"
+                            value={tempFatherName}
+                            onChange={e => setTempFatherName(e.target.value)}
+                            placeholder="e.g. Rohan"
+                        />
+
                         <label className="block text-sm font-medium text-gray-700 mb-2">Pregnancy Week: {tempWeek}</label>
                         <input
                             type="range" min="4" max="42"
@@ -250,6 +282,7 @@ const App: React.FC = () => {
                 user={user}
                 onUpdateUser={updateUser}
                 onSwitchRole={switchRole}
+                onReset={handleReset}
             />
         );
     }
@@ -305,8 +338,16 @@ const App: React.FC = () => {
                 headerContent={
                     <div className="flex justify-between items-center">
                         <div>
-                            <h1 className="text-xl font-serif text-gray-800">Namaste, {user.name}</h1>
-                            <p className="text-xs text-gray-400">Week {user.pregnancyWeek} • {user.kickCount} kicks today</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h1 className="text-xl font-serif text-gray-800">Namaste, {user.name}</h1>
+                                <span className="px-2 py-0.5 bg-rose-quartz-500 text-white text-[10px] font-bold rounded uppercase tracking-wider">
+                                    Mom Mode
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                Week {user.pregnancyWeek} • {user.kickCount} kicks today
+                                {user.partnerName && ` • With: ${user.partnerName}`}
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -315,14 +356,10 @@ const App: React.FC = () => {
                             >
                                 <Users size={12} /> Switch Role
                             </button>
+                            <ResetButton onReset={handleReset} variant="icon" />
                             <div
                                 className="w-10 h-10 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center font-bold cursor-pointer hover:bg-sage-200 transition-colors"
-                                onClick={() => {
-                                    if (window.confirm("Reset profile?")) {
-                                        localStorage.removeItem('garbhVedaUser');
-                                        setUser(null);
-                                    }
-                                }}
+                                title="Profile"
                             >
                                 {user.name[0]}
                             </div>
@@ -337,6 +374,7 @@ const App: React.FC = () => {
                         currentMood={currentMood}
                         onMoodSelect={handleMoodSelect}
                         onActivitySelect={setSelectedActivity}
+                        onRefresh={handleRefreshCurriculum}
                         week={user.pregnancyWeek}
                     />
                 )}
@@ -347,6 +385,7 @@ const App: React.FC = () => {
                         generatedImageUrl={generatedImageUrl}
                         isGeneratingImage={isGeneratingImage}
                         onGenerateImage={handleGenerateImage}
+                        onRefresh={handleRefreshCurriculum}
                     />
                 )}
                 {activeTab === AppTab.CONNECT && (
@@ -368,7 +407,7 @@ const App: React.FC = () => {
                 )}
             </Layout>
 
-            <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+            <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
         </>
     );
 };

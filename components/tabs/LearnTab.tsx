@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Sparkles, Eye, Music, TrendingUp } from 'lucide-react';
+import { Brain, Sparkles, Eye, Music, TrendingUp, RefreshCw } from 'lucide-react';
 import Button from '../Button';
 import { DailyCurriculum, Activity, ActivityCategory } from '../../types';
 import RhythmicMath from '../features/RhythmicMath';
@@ -11,14 +11,22 @@ interface LearnTabProps {
     generatedImageUrl: string | null;
     isGeneratingImage: boolean;
     onGenerateImage: (prompt: string) => void;
+    onRefresh: () => void;
 }
 
-const LearnTab: React.FC<LearnTabProps> = ({ curriculum, onActivitySelect, generatedImageUrl, isGeneratingImage, onGenerateImage }) => {
+const LearnTab: React.FC<LearnTabProps> = ({ curriculum, onActivitySelect, generatedImageUrl, isGeneratingImage, onGenerateImage, onRefresh }) => {
     const [showPuzzleSolution, setShowPuzzleSolution] = useState(false);
     const [activeFeature, setActiveFeature] = useState<'MATH' | 'FINANCE' | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const mathActivity = curriculum?.activities.find(a => a.category === ActivityCategory.MATH);
     const artActivity = curriculum?.activities.find(a => a.category === ActivityCategory.ART);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await onRefresh();
+        setTimeout(() => setIsRefreshing(false), 500);
+    };
 
     if (activeFeature === 'MATH') {
         return <RhythmicMath onBack={() => setActiveFeature(null)} />;
@@ -31,7 +39,17 @@ const LearnTab: React.FC<LearnTabProps> = ({ curriculum, onActivitySelect, gener
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="text-center mb-6">
-                <h2 className="text-2xl font-serif text-gray-800">Brain & Beauty</h2>
+                <div className="flex items-center justify-center gap-3">
+                    <h2 className="text-2xl font-serif text-gray-800">Brain & Beauty</h2>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className="p-2 rounded-full bg-sage-100 hover:bg-sage-200 transition-all disabled:opacity-50"
+                        title="Refresh activities"
+                    >
+                        <RefreshCw size={18} className={`text-sage-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
                 <p className="text-gray-500 text-sm">Stimulating left and right hemispheres</p>
             </div>
 

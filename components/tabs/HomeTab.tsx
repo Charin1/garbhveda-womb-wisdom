@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, ChevronRight, Brain, Sparkles, Heart, Utensils, Activity as ActivityIcon } from 'lucide-react';
+import { Sun, ChevronRight, Brain, Sparkles, Heart, Utensils, Activity as ActivityIcon, RefreshCw } from 'lucide-react';
 import MoodTracker from '../MoodTracker';
 import { DailyCurriculum, Activity, ActivityCategory, Mood } from '../../types';
 import DietPlanner from '../features/DietPlanner';
@@ -11,10 +11,11 @@ interface HomeTabProps {
     currentMood: Mood | null;
     onMoodSelect: (mood: Mood) => void;
     onActivitySelect: (activity: Activity) => void;
+    onRefresh: () => void;
     week: number;
 }
 
-const HomeTab: React.FC<HomeTabProps> = ({ curriculum, isLoading, currentMood, onMoodSelect, onActivitySelect, week }) => {
+const HomeTab: React.FC<HomeTabProps> = ({ curriculum, isLoading, currentMood, onMoodSelect, onActivitySelect, onRefresh, week }) => {
     const [activeFeature, setActiveFeature] = useState<'DIET' | 'YOGA' | null>(null);
 
     const trimester = week <= 12 ? 1 : week <= 26 ? 2 : 3;
@@ -36,7 +37,14 @@ const HomeTab: React.FC<HomeTabProps> = ({ curriculum, isLoading, currentMood, o
                         <p className="text-sage-100 text-xs font-semibold uppercase tracking-wider mb-1">Daily Sankalpa</p>
                         <h2 className="text-2xl font-serif">{curriculum?.sankalpa.virtue || "Loading..."}</h2>
                     </div>
-                    <Sun className="text-sage-200" size={24} />
+                    <button
+                        onClick={onRefresh}
+                        disabled={isLoading}
+                        className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all disabled:opacity-50"
+                        title="Refresh content"
+                    >
+                        <RefreshCw size={20} className={`text-white ${isLoading ? 'animate-spin' : ''}`} />
+                    </button>
                 </div>
                 <p className="text-sage-50 mb-4 text-sm leading-relaxed opacity-90">
                     "{curriculum?.sankalpa.description}"

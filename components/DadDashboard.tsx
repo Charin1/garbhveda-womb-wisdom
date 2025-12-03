@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { UserProfile, UserRole } from '../types';
 import Layout from './Layout';
-import { Shield, Activity, Heart, Mic, Smile, Wind, Clock } from 'lucide-react';
+import ResetButton from './ResetButton';
+import { Shield, Activity, Heart, Mic, Smile, Wind, Clock, Users } from 'lucide-react';
 import KickGame from './DadFeatures/KickGame';
 import SevaTracker from './DadFeatures/SevaTracker';
 import PitraVani from './DadFeatures/PitraVani';
@@ -13,9 +14,10 @@ interface DadDashboardProps {
     user: UserProfile;
     onUpdateUser: (user: UserProfile) => void;
     onSwitchRole: () => void;
+    onReset: () => void;
 }
 
-const DadDashboard: React.FC<DadDashboardProps> = ({ user, onUpdateUser, onSwitchRole }) => {
+const DadDashboard: React.FC<DadDashboardProps> = ({ user, onUpdateUser, onSwitchRole, onReset }) => {
     const [activeFeature, setActiveFeature] = useState<string | null>(null);
 
     const renderFeature = () => {
@@ -51,15 +53,32 @@ const DadDashboard: React.FC<DadDashboardProps> = ({ user, onUpdateUser, onSwitc
             headerContent={
                 <div className="flex justify-between items-center text-slate-100">
                     <div>
-                        <h1 className="text-xl font-serif font-bold">Captain {user.name}</h1>
-                        <p className="text-xs text-slate-400">Week {user.pregnancyWeek} • Protector Mode</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h1 className="text-xl font-serif font-bold">Captain {user.name}</h1>
+                            <span className="px-2 py-0.5 bg-sky-600 text-white text-[10px] font-bold rounded uppercase tracking-wider">
+                                Dad Mode
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                            Week {user.pregnancyWeek} • {user.kickCount} kicks tracked
+                            {user.partnerName && ` • With: ${user.partnerName}`}
+                        </p>
                     </div>
-                    <button
-                        onClick={onSwitchRole}
-                        className="px-3 py-1 bg-slate-800 rounded-full text-xs border border-slate-700 hover:bg-slate-700 transition-colors"
-                    >
-                        Switch to Mom
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onSwitchRole}
+                            className="px-3 py-1 bg-slate-800 rounded-full text-xs border border-slate-700 hover:bg-slate-700 transition-colors flex items-center gap-1"
+                        >
+                            <Users size={12} /> Switch Role
+                        </button>
+                        <ResetButton onReset={onReset} variant="icon" className="bg-slate-800 border border-slate-700 hover:bg-red-900" />
+                        <div
+                            className="w-10 h-10 rounded-full bg-slate-800 text-slate-100 border border-slate-700 flex items-center justify-center font-bold cursor-pointer hover:bg-slate-700 transition-colors"
+                            title="Profile"
+                        >
+                            {user.name[0]}
+                        </div>
+                    </div>
                 </div>
             }
         >
