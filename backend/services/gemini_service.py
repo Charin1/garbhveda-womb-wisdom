@@ -4,7 +4,7 @@ import base64
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from ..models import DailyCurriculum, Activity, DreamInterpretationResponse, Resource, FinancialWisdomResponse
+from ..models import DailyCurriculum, Activity, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -372,4 +372,62 @@ async def generate_financial_wisdom() -> Optional[FinancialWisdomResponse]:
 
     except Exception as e:
         print(f"[Gemini] Error generating financial wisdom: {e}")
+        return None
+
+async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
+    print("[Gemini] Generating rhythmic math activities...")
+    model = "gemini-2.0-flash"
+    
+    prompt = """
+    Generate 3 distinct Rhythmic Math activities for prenatal education.
+    These should combine math concepts (like tables, sequences, primes) with rhythm (beats, instruments).
+    
+    Return ONLY a JSON object with this structure:
+    {
+      "activities": [
+        {
+          "id": "unique_id",
+          "title": "Creative Title (e.g., Table of 2 (Tabla Beat))",
+          "duration": "MM:SS",
+          "bpm": 60-120
+        }
+      ]
+    }
+    """
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "activities": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "id": {"type": "STRING"},
+                                    "title": {"type": "STRING"},
+                                    "duration": {"type": "STRING"},
+                                    "bpm": {"type": "INTEGER"}
+                                },
+                                "required": ["id", "title", "duration", "bpm"]
+                            }
+                        }
+                    }
+                }
+            )
+        )
+
+        text = response.text
+        if not text:
+            return None
+
+        return RhythmicMathResponse(**json.loads(text))
+
+    except Exception as e:
+        print(f"[Gemini] Error generating rhythmic math: {e}")
         return None

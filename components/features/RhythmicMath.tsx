@@ -1,20 +1,46 @@
-import React, { useState, useRef } from 'react';
-import { Play, Pause, Music, Brain } from 'lucide-react';
-
-const MATH_BEATS = [
-    { id: 'tables_2', title: 'Table of 2 (Tabla Beat)', duration: '2:30', bpm: 80 },
-    { id: 'primes', title: 'Prime Numbers (Flute Flow)', duration: '3:15', bpm: 60 },
-    { id: 'fibonacci', title: 'Fibonacci Sequence (Drum)', duration: '1:45', bpm: 90 },
-];
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, Pause, Music, Brain, RefreshCw } from 'lucide-react';
+import { RhythmicMathActivity } from '../../types';
+import { getRhythmicMath } from '../../services/api';
 
 interface RhythmicMathProps {
     onBack: () => void;
 }
 
 const RhythmicMath: React.FC<RhythmicMathProps> = ({ onBack }) => {
+    const [activities, setActivities] = useState<RhythmicMathActivity[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const fetchActivities = async () => {
+        try {
+            const data = await getRhythmicMath();
+            if (data && data.activities) {
+                setActivities(data.activities);
+            }
+        } catch (error) {
+            console.error("Failed to fetch rhythmic math", error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchActivities();
+    }, []);
+
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchActivities();
+        // Stop any playing audio
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        setPlayingId(null);
+        setProgress(0);
+    };
 
     const togglePlay = (id: string) => {
         if (playingId === id) {
@@ -36,9 +62,18 @@ const RhythmicMath: React.FC<RhythmicMathProps> = ({ onBack }) => {
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
             {/* Header */}
-            <div className="flex items-center gap-2 text-sage-600 cursor-pointer mb-4" onClick={onBack}>
-                <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
-                <span className="font-semibold text-sm">Back to Learn</span>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sage-600 cursor-pointer" onClick={onBack}>
+                    <div className="w-8 h-8 rounded-full bg-sage-50 flex items-center justify-center">←</div>
+                    <span className="font-semibold text-sm">Back to Learn</span>
+                </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={refreshing || loading}
+                    className="p-2 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-50"
+                >
+                    <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+                </button>
             </div>
 
             <div className="text-center mb-6">
@@ -46,39 +81,56 @@ const RhythmicMath: React.FC<RhythmicMathProps> = ({ onBack }) => {
                 <p className="text-gray-500 text-sm">Logic meets Rhythm</p>
             </div>
 
-            <div className="space-y-4">
-                {MATH_BEATS.map(beat => (
-                    <div
-                        key={beat.id}
-                        className={`bg-white p-4 rounded-2xl shadow-sm border transition-all ${playingId === beat.id ? 'border-sky-400 ring-2 ring-sky-50' : 'border-gray-100'}`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${playingId === beat.id ? 'bg-sky-500 text-white animate-pulse' : 'bg-sky-50 text-sky-500'}`}>
-                                {playingId === beat.id ? <Music size={20} /> : <Brain size={20} />}
+            {loading ? (
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 animate-pulse">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-sky-50 rounded-full"></div>
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-4 bg-sky-50 rounded w-1/2"></div>
+                                    <div className="h-3 bg-sky-50 rounded w-1/4"></div>
+                                </div>
+                                <div className="w-10 h-10 bg-gray-100 rounded-full"></div>
                             </div>
-                            <div className="flex-1">
-                                <h3 className="font-bold text-gray-800">{beat.title}</h3>
-                                <p className="text-xs text-gray-500">{beat.bpm} BPM • {beat.duration}</p>
-                            </div>
-                            <button
-                                onClick={() => togglePlay(beat.id)}
-                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${playingId === beat.id ? 'bg-sky-100 text-sky-600' : 'bg-gray-100 text-gray-400 hover:bg-sky-50 hover:text-sky-500'}`}
-                            >
-                                {playingId === beat.id ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-                            </button>
                         </div>
-
-                        {playingId === beat.id && (
-                            <div className="mt-4 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                                <div
-                                    className="bg-sky-500 h-full transition-all duration-100 ease-linear"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
+                    ))}
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {activities.map(beat => (
+                        <div
+                            key={beat.id}
+                            className={`bg-white p-4 rounded-2xl shadow-sm border transition-all ${playingId === beat.id ? 'border-sky-400 ring-2 ring-sky-50' : 'border-gray-100'}`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${playingId === beat.id ? 'bg-sky-500 text-white animate-pulse' : 'bg-sky-50 text-sky-500'}`}>
+                                    {playingId === beat.id ? <Music size={20} /> : <Brain size={20} />}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-gray-800">{beat.title}</h3>
+                                    <p className="text-xs text-gray-500">{beat.bpm} BPM • {beat.duration}</p>
+                                </div>
+                                <button
+                                    onClick={() => togglePlay(beat.id)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${playingId === beat.id ? 'bg-sky-100 text-sky-600' : 'bg-gray-100 text-gray-400 hover:bg-sky-50 hover:text-sky-500'}`}
+                                >
+                                    {playingId === beat.id ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
+                                </button>
                             </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+
+                            {playingId === beat.id && (
+                                <div className="mt-4 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                        className="bg-sky-500 h-full transition-all duration-100 ease-linear"
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

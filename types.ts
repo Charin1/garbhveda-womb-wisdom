@@ -136,3 +136,17 @@ export interface AppState {
   completedActivities: string[]; // Activity IDs
   lastSync: string; // ISO timestamp
 }
+
+export interface FinancialTip {
+  id: string;
+  title: string;
+  content: string;
+  icon: 'PiggyBank' | 'TrendingUp' | 'DollarSign' | 'Wallet' | 'CreditCard';
+}
+
+export interface RhythmicMathActivity {
+  id: string;
+  title: string;
+  duration: string;
+  bpm: number;
+}

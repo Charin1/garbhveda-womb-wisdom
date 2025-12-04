@@ -15,3 +15,8 @@ export const getFinancialWisdom = async () => {
     const response = await api.get('/financial-wisdom');
     return response.data;
 };
+
+export const getRhythmicMath = async () => {
+    const response = await api.get('/rhythmic-math');
+    return response.data;
+};

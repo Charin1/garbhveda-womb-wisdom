@@ -47,3 +47,12 @@ class FinancialTip(BaseModel):
 
 class FinancialWisdomResponse(BaseModel):
     tips: List[FinancialTip]
+
+class RhythmicMathActivity(BaseModel):
+    id: str
+    title: str
+    duration: str
+    bpm: int
+
+class RhythmicMathResponse(BaseModel):
+    activities: List[RhythmicMathActivity]

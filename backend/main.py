@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse
+from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse
 from .services import gemini_service
 import uvicorn
 import os
@@ -63,6 +63,13 @@ async def get_financial_wisdom():
     if not wisdom:
         raise HTTPException(status_code=500, detail="Failed to generate financial wisdom")
     return wisdom
+
+@app.get("/api/rhythmic-math", response_model=RhythmicMathResponse)
+async def get_rhythmic_math():
+    math_activities = await gemini_service.generate_rhythmic_math()
+    if not math_activities:
+        raise HTTPException(status_code=500, detail="Failed to generate rhythmic math")
+    return math_activities
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
