@@ -60,6 +60,7 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
 
 **Prerequisites:**
 - Node.js (v18 or higher recommended)
+- Python 3.9+
 - A Google Gemini API Key
 
 1. **Clone the repository:**
@@ -68,25 +69,56 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
    cd garbhveda-womb-wisdom
    ```
 
-2. **Install dependencies:**
+2. **Backend Setup:**
+   
+   Navigate to the project root (if not already there).
+
    ```bash
+   # Create a virtual environment
+   python3 -m venv backend/venv
+
+   # Activate the virtual environment
+   # On macOS/Linux:
+   source backend/venv/bin/activate
+   # On Windows:
+   # backend\venv\Scripts\activate
+
+   # Install dependencies
+   pip install -r backend/requirements.txt
+   ```
+
+3. **Frontend Setup:**
+
+   ```bash
+   # Install dependencies
    npm install
    ```
 
-3. **Configure Environment Variables:**
+4. **Configure Environment Variables:**
    - Create a `.env.local` file in the root directory.
    - Add your Gemini API key:
      ```env
      VITE_GEMINI_API_KEY=your_api_key_here
      ```
 
-4. **Run the development server:**
+5. **Run the Application:**
+
+   You need to run both the backend and frontend servers.
+
+   **Terminal 1 (Backend):**
+   ```bash
+   # Ensure venv is activated
+   source backend/venv/bin/activate
+   uvicorn backend.main:app --reload --port 8000
+   ```
+
+   **Terminal 2 (Frontend):**
    ```bash
    npm run dev
    ```
 
-5. **Open in Browser:**
-   Navigate to `http://localhost:5173` (or the URL shown in your terminal).
+6. **Open in Browser:**
+   Navigate to `http://localhost:3000` (or the URL shown in your terminal).
 
 ## 📱 Usage
 
