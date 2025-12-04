@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import requests
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -39,12 +40,17 @@ Always strictly follow the JSON schema.
 
 from typing import Optional
 
-async def generate_daily_curriculum(week: int) -> Optional[DailyCurriculum]:
-    print(f"[Gemini] Generating curriculum content for week {week}...")
+async def generate_daily_curriculum(week: int, mood: Optional[str] = None) -> Optional[DailyCurriculum]:
+    print(f"[Gemini] Generating curriculum content for week {week}, mood: {mood}...")
     model = "gemini-2.0-flash"
+
+    mood_instruction = ""
+    if mood:
+        mood_instruction = f"The mother is feeling {mood}. Customize the activities and Sankalpa to support this emotional state (e.g., if Tired -> Restorative, if Anxious -> Calming, if Happy -> Celebrating)."
 
     content_prompt = f"""
     Generate a daily Garbh Sanskar curriculum for Pregnancy Week {week}.
+    {mood_instruction}
 
     1. **Sankalpa (Intention)**: A virtue for the day (e.g., Compassion, Courage) with a short mantra.
     2. **Activities**: Provide exactly 4 distinct activities:
@@ -117,6 +123,85 @@ async def generate_daily_curriculum(week: int) -> Optional[DailyCurriculum]:
         print(f"[Gemini] Error generating curriculum: {e}")
         return None
 
+def validate_url(url: str) -> bool:
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    try:
+        print(f"[Gemini] Validating URL: {url}")
+        response = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+        if response.status_code == 200:
+            return True
+    except Exception as e:
+        print(f"[Gemini] HEAD validation failed for {url}: {e}")
+
+    try:
+        # Fallback to GET if HEAD fails (some servers block HEAD)
+        response = requests.get(url, headers=headers, timeout=5, stream=True)
+        if response.status_code == 200:
+            return True
+        print(f"[Gemini] GET validation failed for {url} with status: {response.status_code}")
+    except Exception as e:
+        print(f"[Gemini] GET validation error for {url}: {e}")
+    
+    return False
+
+async def find_single_valid_resource(title: str, description: str, category: str) -> Optional[Resource]:
+    model = "gemini-2.0-flash"
+    for attempt in range(2):
+        print(f"[Gemini] Repair attempt {attempt+1} for: {title}")
+        prompt = f"""
+        Find EXACTLY ONE high-quality, ACTIVE, and WORKING external resource (YouTube video, article, or blog) for:
+        
+        Activity: {title}
+        Category: {category}
+        Description: {description}
+
+        CRITICAL:
+        1. Use Google Search to find a REAL, VALID link.
+        2. Return ONLY a raw JSON object: {{ "title": "...", "url": "...", "description": "..." }}
+        """
+        
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                )
+            )
+            
+            text = response.text
+            if not text: continue
+
+            json_str = text
+            if "```json" in text:
+                json_str = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                json_str = text.split("```")[1].split("```")[0].strip()
+            
+            try:
+                data = json.loads(json_str)
+                # Handle if it returns a list or single object
+                if "resources" in data and isinstance(data["resources"], list) and len(data["resources"]) > 0:
+                    res_data = data["resources"][0]
+                else:
+                    res_data = data
+
+                res = Resource(**res_data)
+                if validate_url(res.url):
+                    print(f"[Gemini] Found valid replacement: {res.url}")
+                    return res
+                else:
+                    print(f"[Gemini] Replacement link invalid: {res.url}")
+            except Exception as e:
+                print(f"[Gemini] Error parsing replacement: {e}")
+                
+        except Exception as e:
+            print(f"[Gemini] Error in repair loop: {e}")
+            
+    return None
+
 async def find_resources_for_activity(title: str, description: str, category: str) -> list[Resource]:
     print(f"[Gemini] Searching resources for: {title}")
     model = "gemini-2.0-flash"
@@ -147,44 +232,76 @@ async def find_resources_for_activity(title: str, description: str, category: st
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
-                # response_mime_type="application/json" # Conflict with tools sometimes, better to parse manually if needed or rely on tool output
             )
         )
-
-        # The response structure with tools is a bit different.
-        # We need to look for the model's text response which should contain the JSON based on our prompt.
-        # Or if the model uses the tool and then answers.
         
         text = response.text
-        if not text:
-            return []
-
-        # Cleanup markdown
-        json_str = text
-        if "```json" in text:
-            json_str = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-             json_str = text.split("```")[1].split("```")[0].strip()
+        resources = []
+        if text:
+            # Cleanup markdown
+            json_str = text
+            if "```json" in text:
+                json_str = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                 json_str = text.split("```")[1].split("```")[0].strip()
+            
+            try:
+                data = json.loads(json_str)
+                resources = [Resource(**r) for r in data.get("resources", [])]
+            except json.JSONDecodeError:
+                # Fallback: try to find JSON-like structure
+                import re
+                match = re.search(r'\{.*\}', text, re.DOTALL)
+                if match:
+                    try:
+                        data = json.loads(match.group(0))
+                        resources = [Resource(**r) for r in data.get("resources", [])]
+                    except:
+                        pass
         
-        # Sometimes it might just be the JSON
-        try:
-            data = json.loads(json_str)
-            return [Resource(**r) for r in data.get("resources", [])]
-        except json.JSONDecodeError:
-             # Fallback: try to find JSON-like structure
-            import re
-            match = re.search(r'\{.*\}', text, re.DOTALL)
-            if match:
-                try:
-                    data = json.loads(match.group(0))
-                    return [Resource(**r) for r in data.get("resources", [])]
-                except:
-                    pass
-            return []
+        # Validate URLs
+        valid_resources = []
+        for res in resources:
+            if validate_url(res.url):
+                valid_resources.append(res)
+            else:
+                print(f"[Gemini] Invalid URL found and removed: {res.url}")
+        
+        # Repair Loop: If we don't have enough valid resources, try to find more one by one
+        if len(valid_resources) < 3:
+            needed = 3 - len(valid_resources)
+            print(f"[Gemini] Only found {len(valid_resources)} valid resources. Attempting to find {needed} replacements...")
+            
+            for _ in range(needed):
+                new_res = await find_single_valid_resource(title, description, category)
+                if new_res:
+                    # Avoid duplicates
+                    if not any(r.url == new_res.url for r in valid_resources):
+                        valid_resources.append(new_res)
+        
+        # Fallback if still no valid resources found
+        if not valid_resources:
+            print(f"[Gemini] No valid resources found for {title} after repair. Generating fallback search link.")
+            search_query = f"{title} pregnancy activity {category}"
+            search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
+            valid_resources.append(Resource(
+                title=f"Search: {title}",
+                url=search_url,
+                description="Click here to search for this activity on Google."
+            ))
+
+        return valid_resources
 
     except Exception as e:
         print(f"[Gemini] Failed to find resources for {title}: {e}")
-        return []
+        # Fallback on error
+        search_query = f"{title} pregnancy activity {category}"
+        search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
+        return [Resource(
+            title=f"Search: {title}",
+            url=search_url,
+            description="Click here to search for this activity on Google."
+        )]
 
 async def interpret_dream(dream_text: str) -> Optional[DreamInterpretationResponse]:
     model = "gemini-2.0-flash"

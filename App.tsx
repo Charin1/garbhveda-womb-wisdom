@@ -70,12 +70,12 @@ const App: React.FC = () => {
 
     // ... imports
 
-    const loadCurriculum = async () => {
+    const loadCurriculum = async (mood?: string) => {
         if (!user) return;
         setIsLoading(true);
 
         // Try to generate fresh content
-        const data = await generateDailyCurriculum(user.pregnancyWeek);
+        const data = await generateDailyCurriculum(user.pregnancyWeek, mood);
 
         // Use generated data if valid, otherwise fallback to hardcoded verified data
         if (data) {
@@ -91,7 +91,7 @@ const App: React.FC = () => {
 
     const handleRefreshCurriculum = async () => {
         console.log('[App] Refreshing curriculum...');
-        await loadCurriculum();
+        await loadCurriculum(currentMood || undefined);
     };
 
     const handleOnboarding = () => {
@@ -174,6 +174,8 @@ const App: React.FC = () => {
                 moodHistory: [...user.moodHistory, { date: new Date().toISOString(), mood }]
             };
             updateUser(updatedUser);
+            // Trigger curriculum refresh based on mood
+            loadCurriculum(mood);
         }
     };
 

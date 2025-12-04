@@ -2,11 +2,13 @@ import api from './api';
 import { DailyCurriculum, Dream } from '../types';
 
 export const generateDailyCurriculum = async (
-  week: number
+  week: number,
+  mood?: string
 ): Promise<DailyCurriculum | null> => {
-  console.log(`[Gemini] Requesting curriculum for week ${week}...`);
+  console.log(`[Gemini] Requesting curriculum for week ${week}, mood: ${mood}...`);
   try {
-    const response = await api.get<DailyCurriculum>(`/curriculum/${week}`);
+    const params = mood ? { mood } : {};
+    const response = await api.get<DailyCurriculum>(`/curriculum/${week}`, { params });
     return response.data;
   } catch (error) {
     console.error("[Gemini] Error fetching curriculum:", error);

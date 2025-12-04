@@ -28,9 +28,11 @@ app.add_middleware(
 def read_root():
     return {"message": "GarbhVeda Backend is running"}
 
+from typing import Optional
+
 @app.get("/api/curriculum/{week}", response_model=DailyCurriculum)
-async def get_curriculum(week: int):
-    curriculum = await gemini_service.generate_daily_curriculum(week)
+async def get_curriculum(week: int, mood: Optional[str] = None):
+    curriculum = await gemini_service.generate_daily_curriculum(week, mood)
     if not curriculum:
         raise HTTPException(status_code=500, detail="Failed to generate curriculum")
     return curriculum
