@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse
+from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse
 from .services import gemini_service
 import uvicorn
 import os
@@ -72,6 +72,27 @@ async def get_rhythmic_math():
     if not math_activities:
         raise HTTPException(status_code=500, detail="Failed to generate rhythmic math")
     return math_activities
+
+@app.get("/api/raaga-recommendations", response_model=RaagaResponse)
+async def get_raaga_recommendations():
+    raagas = await gemini_service.generate_raaga_recommendations()
+    if not raagas:
+        raise HTTPException(status_code=500, detail="Failed to generate raaga recommendations")
+    return raagas
+
+@app.get("/api/raagas/defaults", response_model=RaagaResponse)
+async def get_initial_raagas():
+    raagas = await gemini_service.get_initial_raagas()
+    if not raagas:
+        raise HTTPException(status_code=500, detail="Failed to fetch initial raagas")
+    return raagas
+
+@app.get("/api/mantras/defaults", response_model=MantraResponse)
+async def get_initial_mantras():
+    mantras = await gemini_service.get_initial_mantras()
+    if not mantras:
+        raise HTTPException(status_code=500, detail="Failed to fetch initial mantras")
+    return mantras
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

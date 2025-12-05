@@ -1,5 +1,5 @@
 import api from './api';
-import { DailyCurriculum, Dream } from '../types';
+import { DailyCurriculum, Dream, Raaga, Mantra } from '../types';
 
 export const generateDailyCurriculum = async (
   week: number,
@@ -52,3 +52,37 @@ export const generateImage = async (prompt: string): Promise<string | null> => {
     return null;
   }
 }
+
+
+export const generateRaagaRecommendations = async (): Promise<Raaga[] | null> => {
+  console.log("[Gemini] Requesting raaga recommendations...");
+  try {
+    const response = await api.get<{ raagas: Raaga[] }>('/raaga-recommendations');
+    return response.data.raagas;
+  } catch (error) {
+    console.error("[Gemini] Error generating raaga recommendations:", error);
+    return null;
+  }
+};
+
+export const getInitialRaagas = async (): Promise<Raaga[] | null> => {
+  console.log("[Gemini] Requesting initial raagas...");
+  try {
+    const response = await api.get<{ raagas: Raaga[] }>('/raagas/defaults');
+    return response.data.raagas;
+  } catch (error) {
+    console.error("[Gemini] Error fetching initial raagas:", error);
+    return null;
+  }
+};
+
+export const getInitialMantras = async (): Promise<Mantra[] | null> => {
+  console.log("[Gemini] Requesting initial mantras...");
+  try {
+    const response = await api.get<{ mantras: Mantra[] }>('/mantras/defaults');
+    return response.data.mantras;
+  } catch (error) {
+    console.error("[Gemini] Error fetching initial mantras:", error);
+    return null;
+  }
+};

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Pause, Sun, RotateCw } from 'lucide-react';
+import { getInitialMantras } from '../../services/geminiService';
+import { Mantra } from '../../types';
 
-const MANTRAS = [
+const FALLBACK_MANTRAS = [
     { id: 'gayatri', title: 'Gayatri Mantra', meaning: 'Illumination of intellect', count: 108 },
     { id: 'om', title: 'Om Chanting', meaning: 'Universal vibration', count: 21 },
     { id: 'shanti', title: 'Shanti Mantra', meaning: 'Peace for all beings', count: 11 }
@@ -12,14 +14,40 @@ interface MantraPlayerProps {
 }
 
 const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
-    const [currentMantra, setCurrentMantra] = useState(MANTRAS[0]);
+    const [mantras, setMantras] = useState<Mantra[]>(FALLBACK_MANTRAS);
+    const [currentMantra, setCurrentMantra] = useState(mantras[0]);
     const [counter, setCounter] = useState(0);
     const [isActive, setIsActive] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDefaults = async () => {
+            const defaults = await getInitialMantras();
+            if (defaults && defaults.length > 0) {
+                setMantras(defaults);
+                // Try to preserve selection if id matches
+                setCurrentMantra(prev => defaults.find(m => m.id === prev.id) || defaults[0]);
+            }
+            setInitialLoading(false);
+        };
+        fetchDefaults();
+    }, []);
 
     const handleTap = () => {
         if (counter < currentMantra.count) {
             setCounter(c => c + 1);
         }
+    };
+
+    const getEmbedUrl = (url?: string) => {
+        if (!url) return '';
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+        if (!videoId) return '';
+        // Autoplay enabled if active, controls hidden for clean look, loop enabled for continuous chanting
+        return `https://www.youtube.com/embed/${videoId}?autoplay=${isActive ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&modestbranding=1`;
     };
 
     return (
@@ -33,6 +61,18 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
             <div className="text-center mb-6">
                 <h2 className="text-2xl font-serif text-saffron-600">Mantra Naad</h2>
                 <p className="text-gray-500 text-sm">Sacred sounds, sacred space</p>
+                {/* Hidden Player */}
+                {currentMantra.url && (
+                    <div className="w-0 h-0 overflow-hidden">
+                        <iframe
+                            width="200"
+                            height="200"
+                            src={getEmbedUrl(currentMantra.url)}
+                            title={currentMantra.title}
+                            allow="autoplay"
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Counter Circle */}
@@ -69,10 +109,10 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
 
             {/* Mantra Selection */}
             <div className="space-y-3">
-                {MANTRAS.map(mantra => (
+                {mantras.map(mantra => (
                     <div
                         key={mantra.id}
-                        onClick={() => { setCurrentMantra(mantra); setCounter(0); }}
+                        onClick={() => { setCurrentMantra(mantra); setCounter(0); setIsActive(false); }}
                         className={`p-4 rounded-2xl border cursor-pointer transition-all ${currentMantra.id === mantra.id ? 'bg-saffron-50 border-saffron-200 ring-1 ring-saffron-200' : 'bg-white border-gray-100'}`}
                     >
                         <h4 className="font-bold text-gray-800">{mantra.title}</h4>

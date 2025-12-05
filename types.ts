@@ -150,3 +150,20 @@ export interface RhythmicMathActivity {
   duration: string;
   bpm: number;
 }
+
+export interface Raaga {
+  id: string;
+  title: string;
+  time: string;
+  benefit: string;
+  duration: string;
+  url?: string;
+}
+
+export interface Mantra {
+  id: string;
+  title: string;
+  meaning: string;
+  count: number;
+  url?: string;
+}

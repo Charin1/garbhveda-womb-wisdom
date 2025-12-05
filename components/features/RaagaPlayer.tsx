@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Play, Pause, Music, Volume2, SkipForward, SkipBack } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, Pause, Music, Volume2, SkipForward, SkipBack, RefreshCw } from 'lucide-react';
+import { generateRaagaRecommendations, getInitialRaagas } from '../../services/geminiService';
+import { Raaga } from '../../types';
 
-const RAAGAS = [
-    { id: 'yaman', title: 'Raag Yaman', time: 'Evening', benefit: 'Peace & Calm', duration: '15:00' },
-    { id: 'bhimpalasi', title: 'Raag Bhimpalasi', time: 'Afternoon', benefit: 'Emotional Balance', duration: '12:30' },
-    { id: 'bhairavi', title: 'Raag Bhairavi', time: 'Morning', benefit: 'Devotion & Love', duration: '18:45' }
+// Fallback in case API fails
+const FALLBACK_RAAGAS = [
+    { id: 'yaman', title: 'Raag Yaman', time: 'Evening', benefit: 'Peace & Calm', duration: '15:00', url: 'https://www.youtube.com/watch?v=k_lG5_M_s-Q' },
+    { id: 'bhimpalasi', title: 'Raag Bhimpalasi', time: 'Afternoon', benefit: 'Emotional Balance', duration: '12:30', url: 'https://www.youtube.com/watch?v=F_fP8Yp7RjM' },
+    { id: 'bhairavi', title: 'Raag Bhairavi', time: 'Morning', benefit: 'Devotion & Love', duration: '18:45', url: 'https://www.youtube.com/watch?v=ebN-B3d5xSg' }
 ];
 
 interface RaagaPlayerProps {
@@ -12,8 +15,46 @@ interface RaagaPlayerProps {
 }
 
 const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
-    const [currentRaaga, setCurrentRaaga] = useState(RAAGAS[0]);
+    const [raagas, setRaagas] = useState<Raaga[]>(FALLBACK_RAAGAS);
+    const [currentRaaga, setCurrentRaaga] = useState(raagas[0]);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDefaults = async () => {
+            const defaults = await getInitialRaagas();
+            if (defaults && defaults.length > 0) {
+                setRaagas(defaults);
+                setCurrentRaaga(defaults[0]);
+            }
+            setInitialLoading(false);
+        };
+        fetchDefaults();
+    }, []);
+
+    const handleRefresh = async () => {
+        setLoading(true);
+        const newRaagas = await generateRaagaRecommendations();
+        console.log("Generated Raagas:", newRaagas);
+        if (newRaagas && newRaagas.length > 0) {
+            setRaagas(newRaagas);
+            setCurrentRaaga(newRaagas[0]);
+            setIsPlaying(false);
+        }
+        setLoading(false);
+    };
+
+    const getEmbedUrl = (url?: string) => {
+        if (!url) return '';
+        // Extract video ID from various YouTube URL formats
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+        if (!videoId) return '';
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&modestbranding=1`;
+    };
 
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
@@ -31,9 +72,25 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
             {/* Player Card */}
             <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-3xl p-8 text-white shadow-xl shadow-amber-200 relative overflow-hidden">
                 <div className="relative z-10 flex flex-col items-center">
-                    <div className="w-40 h-40 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-sm border border-white/20 shadow-inner">
-                        <Music size={64} className="text-white opacity-80" />
-                    </div>
+
+                    {isPlaying && currentRaaga.url ? (
+                        <div className="w-full h-40 mb-6 rounded-2xl overflow-hidden shadow-inner bg-black/20 backdrop-blur-sm border border-white/20">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src={getEmbedUrl(currentRaaga.url)}
+                                title={currentRaaga.title}
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full"
+                            ></iframe>
+                        </div>
+                    ) : (
+                        <div className="w-40 h-40 bg-white/10 rounded-full flex items-center justify-center mb-6 backdrop-blur-sm border border-white/20 shadow-inner">
+                            <Music size={64} className="text-white opacity-80" />
+                        </div>
+                    )}
 
                     <h3 className="text-2xl font-serif mb-1">{currentRaaga.title}</h3>
                     <p className="text-amber-100 text-sm mb-8">{currentRaaga.time} • {currentRaaga.benefit}</p>
@@ -58,8 +115,18 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
 
             {/* Playlist */}
             <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider px-1">Recommended Raagas</h3>
-                {RAAGAS.map(raaga => (
+                <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Recommended Raagas</h3>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={loading}
+                        className={`p-2 rounded-full hover:bg-gray-100 transition-all ${loading ? 'animate-spin' : ''}`}
+                        title="Refresh Recommendations"
+                    >
+                        <RefreshCw size={16} className="text-gray-500" />
+                    </button>
+                </div>
+                {raagas.map(raaga => (
                     <div
                         key={raaga.id}
                         onClick={() => { setCurrentRaaga(raaga); setIsPlaying(true); }}

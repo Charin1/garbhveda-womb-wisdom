@@ -5,7 +5,7 @@ import requests
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from ..models import DailyCurriculum, Activity, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse
+from ..models import DailyCurriculum, Activity, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -548,3 +548,246 @@ async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
     except Exception as e:
         print(f"[Gemini] Error generating rhythmic math: {e}")
         return None
+
+async def generate_raaga_recommendations() -> Optional[RaagaResponse]:
+    print("[Gemini] Generating Raaga recommendations...")
+    model = "gemini-2.0-flash"
+    
+    prompt = """
+    Generate 3 distinct Indian Classical Raagas suitable for pregnancy (Garbh Sanskar).
+    Include the time of day they are best listened to and their specific benefits for the mother and baby.
+    
+    IMPORTANT: You must find a VALID, HIGH-QUALITY YouTube video URL for each Raaga using Google Search.
+    
+    Return ONLY a JSON object with this structure:
+    {
+      "raagas": [
+        {
+          "id": "unique_id (e.g., yaman, bhairavi)",
+          "title": "Raag Name",
+          "time": "Time of Day (e.g., Morning, Evening)",
+          "benefit": "Short benefit description",
+          "duration": "Suggested duration (e.g., 15:00)",
+          "url": "https://www.youtube.com/watch?v=..." 
+        }
+      ]
+    }
+    """
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "raagas": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "id": {"type": "STRING"},
+                                    "title": {"type": "STRING"},
+                                    "time": {"type": "STRING"},
+                                    "benefit": {"type": "STRING"},
+                                    "duration": {"type": "STRING"},
+                                    "url": {"type": "STRING"}
+                                },
+                                "required": ["id", "title", "time", "benefit", "duration", "url"]
+                            }
+                        }
+                    }
+                }
+            )
+        )
+
+        text = response.text
+        if not text:
+            return None
+        
+        data = json.loads(text)
+        raagas_data = data.get("raagas", [])
+        
+        # Validate URLs roughly
+        for raaga in raagas_data:
+             if not raaga.get("url") or "youtube.com" not in raaga.get("url"):
+                 # Fallback search if needed, but the model with search tool should handle it.
+                 # For now, let's just log warning. 
+                 # In a robust system, we would do a fallback search here similar to resources.
+                 print(f"[Gemini] Warning: No valid YouTube URL for {raaga.get('title')}")
+
+        return RaagaResponse(**data)
+
+    except Exception as e:
+        print(f"[Gemini] Error generating raaga recommendations: {e}")
+        return None
+
+async def get_initial_raagas() -> Optional[RaagaResponse]:
+    print("[Gemini] Fetching initial Raagas with dynamic links...")
+    model = "gemini-2.0-flash"
+    
+    # We want specific Raagas but with fresh links
+    prompt = """
+    I need 3 specific Indian Classical Raagas for pregnancy with valid YouTube links:
+    1. Raag Yaman (Evening, Peace & Calm)
+    2. Raag Bhimpalasi (Afternoon, Emotional Balance)
+    3. Raag Bhairavi (Morning, Devotion & Love)
+
+    IMPORTANT: You must find a VALID, HIGH-QUALITY, PLAYABLE YouTube video URL for EACH of these using Google Search.
+    
+    Return ONLY a JSON object with this structure:
+    {
+      "raagas": [
+        {
+          "id": "yaman",
+          "title": "Raag Yaman",
+          "time": "Evening",
+          "benefit": "Peace & Calm",
+          "duration": "15:00",
+          "url": "https://www.youtube.com/watch?v=..." 
+        },
+        {
+          "id": "bhimpalasi",
+          "title": "Raag Bhimpalasi",
+          "time": "Afternoon",
+          "benefit": "Emotional Balance",
+          "duration": "12:30",
+          "url": "https://www.youtube.com/watch?v=..." 
+        },
+        {
+          "id": "bhairavi",
+          "title": "Raag Bhairavi",
+          "time": "Morning",
+          "benefit": "Devotion & Love",
+          "duration": "18:45",
+          "url": "https://www.youtube.com/watch?v=..." 
+        }
+      ]
+    }
+    """
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "raagas": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "id": {"type": "STRING"},
+                                    "title": {"type": "STRING"},
+                                    "time": {"type": "STRING"},
+                                    "benefit": {"type": "STRING"},
+                                    "duration": {"type": "STRING"},
+                                    "url": {"type": "STRING"}
+                                },
+                                "required": ["id", "title", "time", "benefit", "duration", "url"]
+                            }
+                        }
+                    }
+                }
+            )
+        )
+
+        text = response.text
+        if not text:
+            return None
+        
+        data = json.loads(text)
+        return RaagaResponse(**data)
+
+    except Exception as e:
+        print(f"[Gemini] Error fetching initial raagas: {e}")
+        return None
+
+async def get_initial_mantras() -> Optional[MantraResponse]:
+    print("[Gemini] Fetching initial Mantras with dynamic links...")
+    model = "gemini-2.0-flash"
+    
+    prompt = """
+    I need 3 specific Indian Mantras for pregnancy with valid YouTube links:
+    1. Gayatri Mantra (Illumination of intellect, 108 times)
+    2. Om Chanting (Universal vibration, 21 times)
+    3. Shanti Mantra (Peace for all beings, 11 times)
+
+    IMPORTANT: You must find a VALID, HIGH-QUALITY, PLAYABLE YouTube video URL for EACH of these using Google Search.
+    
+    Return ONLY a JSON object with this structure:
+    {
+      "mantras": [
+        {
+          "id": "gayatri",
+          "title": "Gayatri Mantra",
+          "meaning": "Illumination of intellect",
+          "count": 108,
+          "url": "https://www.youtube.com/watch?v=..." 
+        },
+        {
+          "id": "om",
+          "title": "Om Chanting",
+          "meaning": "Universal vibration",
+          "count": 21,
+          "url": "https://www.youtube.com/watch?v=..." 
+        },
+        {
+          "id": "shanti",
+          "title": "Shanti Mantra",
+          "meaning": "Peace for all beings",
+          "count": 11,
+          "url": "https://www.youtube.com/watch?v=..." 
+        }
+      ]
+    }
+    """
+
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "mantras": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "id": {"type": "STRING"},
+                                    "title": {"type": "STRING"},
+                                    "meaning": {"type": "STRING"},
+                                    "count": {"type": "INTEGER"},
+                                    "url": {"type": "STRING"}
+                                },
+                                "required": ["id", "title", "meaning", "count", "url"]
+                            }
+                        }
+                    }
+                }
+            )
+        )
+
+        text = response.text
+        if not text:
+            return None
+        
+        data = json.loads(text)
+        print(f"[Gemini] Mantra URLs found: {[m.get('url') for m in data.get('mantras', [])]}")
+        return MantraResponse(**data)
+
+    except Exception as e:
+        print(f"[Gemini] Error fetching initial mantras: {e}")
+        return None
+

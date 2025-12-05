@@ -56,3 +56,24 @@ class RhythmicMathActivity(BaseModel):
 
 class RhythmicMathResponse(BaseModel):
     activities: List[RhythmicMathActivity]
+
+class Raaga(BaseModel):
+    id: str
+    title: str
+    time: str
+    benefit: str
+    duration: str
+    url: Optional[str] = None
+
+class RaagaResponse(BaseModel):
+    raagas: List[Raaga]
+
+class Mantra(BaseModel):
+    id: str
+    title: str
+    meaning: str
+    count: int
+    url: Optional[str] = None
+
+class MantraResponse(BaseModel):
+    mantras: List[Mantra]
