@@ -19,14 +19,28 @@ interface SoulTabProps {
 
 const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, currentTrackId, isPlaying, onPlayTrack }) => {
     const [activeFeature, setActiveFeature] = useState<'RAAGA' | 'MANTRA' | 'VIZ' | null>(null);
+    const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
     const spiritActivity = curriculum?.activities.find(a => a.category === ActivityCategory.SPIRITUALITY);
 
+    const handleLibraryClick = (track: any) => {
+        if (track.category === 'RAGA') {
+            setSelectedTrackId(track.id === 'r1' ? 'yaman' : 'bhairavi'); // Simple mapping
+            setActiveFeature('RAAGA');
+        } else if (track.category === 'MANTRA') {
+            setSelectedTrackId(track.id === 't1' ? 'om' : track.id === 't2' ? 'gayatri' : 'shanti');
+            setActiveFeature('MANTRA');
+        } else {
+            // Fallback for others (Nature/Instrumental) to existing TTS or ignored for now
+            onPlayTrack(track.id, track.text);
+        }
+    };
+
     if (activeFeature === 'RAAGA') {
-        return <RaagaPlayer onBack={() => setActiveFeature(null)} />;
+        return <RaagaPlayer onBack={() => { setActiveFeature(null); setSelectedTrackId(null); }} initialPlayId={selectedTrackId} />;
     }
 
     if (activeFeature === 'MANTRA') {
-        return <MantraPlayer onBack={() => setActiveFeature(null)} />;
+        return <MantraPlayer onBack={() => { setActiveFeature(null); setSelectedTrackId(null); }} initialPlayId={selectedTrackId} />;
     }
 
     if (activeFeature === 'VIZ') {
@@ -115,7 +129,7 @@ const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, curr
                     {AUDIO_TRACKS.map(track => (
                         <div
                             key={track.id}
-                            onClick={() => onPlayTrack(track.id, track.text)}
+                            onClick={() => handleLibraryClick(track)}
                             className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all ${currentTrackId === track.id ? 'bg-sage-50 border-sage-200' : 'bg-white border-gray-100 hover:border-sage-200'
                                 }`}
                         >

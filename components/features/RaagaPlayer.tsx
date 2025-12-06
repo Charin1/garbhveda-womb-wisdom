@@ -1,20 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Music, Volume2, SkipForward, SkipBack, RefreshCw } from 'lucide-react';
+import { Play, Pause, Music, Volume2, SkipForward, SkipBack, RefreshCw, ExternalLink } from 'lucide-react';
 import { generateRaagaRecommendations, getInitialRaagas } from '../../services/geminiService';
 import { Raaga } from '../../types';
 
 // Fallback in case API fails
 const FALLBACK_RAAGAS = [
-    { id: 'yaman', title: 'Raag Yaman', time: 'Evening', benefit: 'Peace & Calm', duration: '15:00', url: 'https://www.youtube.com/watch?v=k_lG5_M_s-Q' },
-    { id: 'bhimpalasi', title: 'Raag Bhimpalasi', time: 'Afternoon', benefit: 'Emotional Balance', duration: '12:30', url: 'https://www.youtube.com/watch?v=F_fP8Yp7RjM' },
-    { id: 'bhairavi', title: 'Raag Bhairavi', time: 'Morning', benefit: 'Devotion & Love', duration: '18:45', url: 'https://www.youtube.com/watch?v=ebN-B3d5xSg' }
+    { id: 'yaman', title: 'Raag Yaman', time: 'Evening', benefit: 'Peace & Calm', duration: '15:00', url: 'https://www.youtube.com/watch?v=tUOIqJO_tys' },
+    { id: 'bhimpalasi', title: 'Raag Bhimpalasi', time: 'Afternoon', benefit: 'Emotional Balance', duration: '12:30', url: 'https://www.youtube.com/watch?v=twKilA-kozY' },
+    { id: 'bhairavi', title: 'Raag Bhairavi', time: 'Morning', benefit: 'Devotion & Love', duration: '18:45', url: 'https://www.youtube.com/watch?v=tLXNNejKhJs' }
 ];
 
 interface RaagaPlayerProps {
     onBack: () => void;
+    initialPlayId?: string | null;
 }
 
-const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
+// Check if URL is a direct video link or a search URL
+const isDirectVideoUrl = (url?: string): boolean => {
+    if (!url) return false;
+    return url.includes('watch?v=') || url.includes('youtu.be/');
+};
+
+const getEmbedUrl = (url?: string) => {
+    if (!url) return '';
+    // Only create embed URL for direct video links
+    if (!isDirectVideoUrl(url)) return '';
+
+    // Extract video ID from various YouTube URL formats
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+    if (!videoId) return '';
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&modestbranding=1`;
+};
+
+const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack, initialPlayId }) => {
     const [raagas, setRaagas] = useState<Raaga[]>(FALLBACK_RAAGAS);
     const [currentRaaga, setCurrentRaaga] = useState(raagas[0]);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -26,12 +47,22 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
             const defaults = await getInitialRaagas();
             if (defaults && defaults.length > 0) {
                 setRaagas(defaults);
-                setCurrentRaaga(defaults[0]);
+                if (initialPlayId) {
+                    const target = defaults.find(r => r.id === initialPlayId);
+                    if (target) {
+                        setCurrentRaaga(target);
+                        setIsPlaying(true);
+                    } else {
+                        setCurrentRaaga(defaults[0]);
+                    }
+                } else {
+                    setCurrentRaaga(defaults[0]);
+                }
             }
             setInitialLoading(false);
         };
         fetchDefaults();
-    }, []);
+    }, [initialPlayId]);
 
     const handleRefresh = async () => {
         setLoading(true);
@@ -45,16 +76,19 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
         setLoading(false);
     };
 
-    const getEmbedUrl = (url?: string) => {
-        if (!url) return '';
-        // Extract video ID from various YouTube URL formats
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        const videoId = (match && match[2].length === 11) ? match[2] : null;
-
-        if (!videoId) return '';
-        return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&modestbranding=1`;
+    const handlePlayClick = () => {
+        if (currentRaaga.url) {
+            if (isDirectVideoUrl(currentRaaga.url)) {
+                // Direct video - toggle embed playback
+                setIsPlaying(!isPlaying);
+            } else {
+                // Search URL - open in new tab
+                window.open(currentRaaga.url, '_blank', 'noopener,noreferrer');
+            }
+        }
     };
+
+    const isSearchUrl = !isDirectVideoUrl(currentRaaga.url);
 
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
@@ -73,9 +107,10 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
             <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-3xl p-8 text-white shadow-xl shadow-amber-200 relative overflow-hidden">
                 <div className="relative z-10 flex flex-col items-center">
 
-                    {isPlaying && currentRaaga.url ? (
+                    {isPlaying && isDirectVideoUrl(currentRaaga.url) ? (
                         <div className="w-full h-40 mb-6 rounded-2xl overflow-hidden shadow-inner bg-black/20 backdrop-blur-sm border border-white/20">
                             <iframe
+                                key={currentRaaga.id}
                                 width="100%"
                                 height="100%"
                                 src={getEmbedUrl(currentRaaga.url)}
@@ -99,18 +134,34 @@ const RaagaPlayer: React.FC<RaagaPlayerProps> = ({ onBack }) => {
                     <div className="flex items-center gap-8">
                         <SkipBack size={24} className="text-amber-200 cursor-pointer hover:text-white" />
                         <button
-                            onClick={() => setIsPlaying(!isPlaying)}
+                            onClick={handlePlayClick}
                             className="w-16 h-16 bg-white text-amber-600 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
                         >
-                            {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                            {isSearchUrl ? (
+                                <ExternalLink size={28} />
+                            ) : isPlaying ? (
+                                <Pause size={32} fill="currentColor" />
+                            ) : (
+                                <Play size={32} fill="currentColor" className="ml-1" />
+                            )}
                         </button>
                         <SkipForward size={24} className="text-amber-200 cursor-pointer hover:text-white" />
                     </div>
+                    {isSearchUrl && (
+                        <p className="text-xs text-amber-100 mt-4 opacity-80">Click to find {currentRaaga.title} on YouTube</p>
+                    )}
                 </div>
-
                 {/* Background Decor */}
                 <div className="absolute -top-20 -left-20 w-60 h-60 bg-amber-400 opacity-20 rounded-full blur-3xl"></div>
                 <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-amber-900 opacity-20 rounded-full blur-3xl"></div>
+
+                {/* Loading Override */}
+                {loading && (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white">
+                        <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p>Finding the perfect Raaga...</p>
+                    </div>
+                )}
             </div>
 
             {/* Playlist */}

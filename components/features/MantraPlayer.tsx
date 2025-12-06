@@ -1,19 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Sun, RotateCw } from 'lucide-react';
+import { Play, Pause, Sun, RotateCw, ExternalLink, Volume2 } from 'lucide-react';
 import { getInitialMantras } from '../../services/geminiService';
 import { Mantra } from '../../types';
 
 const FALLBACK_MANTRAS = [
-    { id: 'gayatri', title: 'Gayatri Mantra', meaning: 'Illumination of intellect', count: 108 },
-    { id: 'om', title: 'Om Chanting', meaning: 'Universal vibration', count: 21 },
-    { id: 'shanti', title: 'Shanti Mantra', meaning: 'Peace for all beings', count: 11 }
+    { id: 'gayatri', title: 'Gayatri Mantra', meaning: 'Illumination of intellect', count: 108, url: 'https://www.youtube.com/watch?v=GEVvyIrQZnA' },
+    { id: 'om', title: 'Om Chanting', meaning: 'Universal vibration', count: 21, url: 'https://www.youtube.com/watch?v=8sYK7lm3UKg' },
+    { id: 'shanti', title: 'Shanti Mantra', meaning: 'Peace for all beings', count: 11, url: 'https://www.youtube.com/watch?v=8nkzIn42xRI' }
 ];
 
 interface MantraPlayerProps {
     onBack: () => void;
+    initialPlayId?: string | null;
 }
 
-const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
+// Check if URL is a direct video link or a search URL
+const isDirectVideoUrl = (url?: string): boolean => {
+    if (!url) return false;
+    return url.includes('watch?v=') || url.includes('youtu.be/');
+};
+
+const getEmbedUrl = (url?: string, isActive?: boolean) => {
+    if (!url) return '';
+    if (!isDirectVideoUrl(url)) return '';
+
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+    if (!videoId) return '';
+    return `https://www.youtube.com/embed/${videoId}?autoplay=${isActive ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&modestbranding=1`;
+};
+
+const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack, initialPlayId }) => {
     const [mantras, setMantras] = useState<Mantra[]>(FALLBACK_MANTRAS);
     const [currentMantra, setCurrentMantra] = useState(mantras[0]);
     const [counter, setCounter] = useState(0);
@@ -25,13 +44,23 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
             const defaults = await getInitialMantras();
             if (defaults && defaults.length > 0) {
                 setMantras(defaults);
-                // Try to preserve selection if id matches
-                setCurrentMantra(prev => defaults.find(m => m.id === prev.id) || defaults[0]);
+
+                if (initialPlayId) {
+                    const target = defaults.find(m => m.id === initialPlayId);
+                    if (target) {
+                        setCurrentMantra(target);
+                        setIsActive(true);
+                    } else {
+                        setCurrentMantra(defaults[0]);
+                    }
+                } else {
+                    setCurrentMantra(prev => defaults.find(m => m.id === prev.id) || defaults[0]);
+                }
             }
             setInitialLoading(false);
         };
         fetchDefaults();
-    }, []);
+    }, [initialPlayId]);
 
     const handleTap = () => {
         if (counter < currentMantra.count) {
@@ -39,16 +68,19 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
         }
     };
 
-    const getEmbedUrl = (url?: string) => {
-        if (!url) return '';
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        const videoId = (match && match[2].length === 11) ? match[2] : null;
-
-        if (!videoId) return '';
-        // Autoplay enabled if active, controls hidden for clean look, loop enabled for continuous chanting
-        return `https://www.youtube.com/embed/${videoId}?autoplay=${isActive ? 1 : 0}&controls=0&loop=1&playlist=${videoId}&modestbranding=1`;
+    const handlePlayClick = () => {
+        if (currentMantra.url) {
+            if (isDirectVideoUrl(currentMantra.url)) {
+                // Direct video - toggle embed playback
+                setIsActive(!isActive);
+            } else {
+                // Search URL - open in new tab
+                window.open(currentMantra.url, '_blank', 'noopener,noreferrer');
+            }
+        }
     };
+
+    const isSearchUrl = !isDirectVideoUrl(currentMantra.url);
 
     return (
         <div className="space-y-6 animate-fade-in text-gray-800">
@@ -61,15 +93,18 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
             <div className="text-center mb-6">
                 <h2 className="text-2xl font-serif text-saffron-600">Mantra Naad</h2>
                 <p className="text-gray-500 text-sm">Sacred sounds, sacred space</p>
-                {/* Hidden Player */}
-                {currentMantra.url && (
-                    <div className="w-0 h-0 overflow-hidden">
+                {/* Hidden Player - only for direct video URLs */}
+                {currentMantra.url && isDirectVideoUrl(currentMantra.url) && (
+                    <div className="w-full h-32 mt-4 rounded-xl overflow-hidden shadow-md">
                         <iframe
-                            width="200"
-                            height="200"
-                            src={getEmbedUrl(currentMantra.url)}
+                            key={currentMantra.id}
+                            width="100%"
+                            height="100%"
+                            src={getEmbedUrl(currentMantra.url, isActive)}
                             title={currentMantra.title}
-                            allow="autoplay"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="w-full h-full"
                         />
                     </div>
                 )}
@@ -99,11 +134,25 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
                     <RotateCw size={20} />
                 </button>
                 <button
-                    onClick={() => setIsActive(!isActive)}
+                    onClick={handlePlayClick}
                     className="px-6 py-3 bg-saffron-500 text-white rounded-full font-bold shadow-md hover:bg-saffron-600 flex items-center gap-2"
                 >
-                    {isActive ? <Pause size={20} /> : <Play size={20} />}
-                    {isActive ? 'Pause Audio' : 'Play Audio'}
+                    {isSearchUrl ? (
+                        <>
+                            <ExternalLink size={20} />
+                            Find Audio
+                        </>
+                    ) : isActive ? (
+                        <>
+                            <Pause size={20} />
+                            Pause Audio
+                        </>
+                    ) : (
+                        <>
+                            <Play size={20} />
+                            Play Audio
+                        </>
+                    )}
                 </button>
             </div>
 
@@ -112,11 +161,16 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack }) => {
                 {mantras.map(mantra => (
                     <div
                         key={mantra.id}
-                        onClick={() => { setCurrentMantra(mantra); setCounter(0); setIsActive(false); }}
-                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${currentMantra.id === mantra.id ? 'bg-saffron-50 border-saffron-200 ring-1 ring-saffron-200' : 'bg-white border-gray-100'}`}
+                        onClick={() => { setCurrentMantra(mantra); setCounter(0); setIsActive(true); }}
+                        className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${currentMantra.id === mantra.id ? 'bg-saffron-50 border-saffron-200 ring-1 ring-saffron-200' : 'bg-white border-gray-100'}`}
                     >
-                        <h4 className="font-bold text-gray-800">{mantra.title}</h4>
-                        <p className="text-xs text-gray-500">{mantra.meaning}</p>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${currentMantra.id === mantra.id ? 'bg-saffron-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                            {currentMantra.id === mantra.id && isActive ? <Volume2 size={18} /> : <Play size={18} fill="currentColor" />}
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="font-bold text-gray-800">{mantra.title}</h4>
+                            <p className="text-xs text-gray-500">{mantra.meaning}</p>
+                        </div>
                     </div>
                 ))}
             </div>
