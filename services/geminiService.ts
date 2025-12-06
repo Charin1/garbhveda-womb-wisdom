@@ -86,3 +86,19 @@ export const getInitialMantras = async (): Promise<Mantra[] | null> => {
     return null;
   }
 };
+
+export const generateDadJoke = async (): Promise<string[]> => {
+  console.log("[GEMINI] Frontend requesting batch of dad jokes via /api/dad-joke");
+  try {
+    const response = await api.get('/dad-joke');
+    console.log("[GEMINI] Dad jokes response:", response.data);
+    if (response.data && response.data.jokes) {
+      return response.data.jokes;
+    } else {
+      throw new Error("Invalid response format");
+    }
+  } catch (error) {
+    console.error('[GEMINI] Error generating dad jokes:', error);
+    return ["Why don't eggs tell jokes? They'd crack each other up! (Fallback)"];
+  }
+};

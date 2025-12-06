@@ -767,7 +767,45 @@ async def generate_audio(text: str) -> Optional[bytes]:
         print(f"[Gemini] Error generating audio: {e}")
         return None
 
-async def generate_image(prompt: str) -> Optional[str]:
+async def generate_dad_joke() -> List[str]:
+    print("[Gemini] Generating batch of 50 dad jokes...")
+    model = "gemini-2.0-flash"
+    prompt = """
+    Generate 50 distinct "dad jokes".
+    Constraints:
+    1. STRICTLY CLEAN and FAMILY FRIENDLY (No "non-veg", no adult themes).
+    2. SIMPLE language (easy to understand).
+    3. FUNNY and lighthearted.
+    4. Short and punchy.
+    
+    Return a JSON object with a single key "jokes" containing a list of strings.
+    Example: {"jokes": ["Joke 1", "Joke 2", ...]}
+    """
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "jokes": {
+                            "type": "ARRAY",
+                            "items": {"type": "STRING"}
+                        }
+                    }
+                }
+            )
+        )
+        
+        data = json.loads(response.text)
+        jokes = data.get("jokes", [])
+        print(f"[Gemini] Generated {len(jokes)} jokes.")
+        return jokes
+    except Exception as e:
+        print(f"Error generating jokes: {e}")
+        return ["Why did the scarecrow win an award? Because he was outstanding in his field!"]
     print(f"[Gemini] Generating image for prompt: \"{prompt}\"")
     try:
         # Using Imagen 3 model

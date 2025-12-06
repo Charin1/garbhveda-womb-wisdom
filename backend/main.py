@@ -94,5 +94,12 @@ async def get_initial_mantras():
         raise HTTPException(status_code=500, detail="Failed to fetch initial mantras")
     return mantras
 
+@app.get("/api/dad-joke")
+async def get_dad_joke():
+    jokes = await gemini_service.generate_dad_joke()
+    if not jokes:
+        raise HTTPException(status_code=500, detail="Failed to generate jokes")
+    return {"jokes": jokes}
+
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

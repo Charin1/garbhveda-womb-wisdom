@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Smile, ThumbsUp, RefreshCw } from 'lucide-react';
+import { generateDadJoke } from '../../services/geminiService';
 
 interface DadJokesProps {
     onBack: () => void;
@@ -10,24 +11,39 @@ const DadJokes: React.FC<DadJokesProps> = ({ onBack }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [sheLaughed, setSheLaughed] = useState(false);
 
-    const fetchJoke = async () => {
+    const [currentJokeIndex, setCurrentJokeIndex] = useState(0);
+    const [jokeBatch, setJokeBatch] = useState<string[]>([]);
+
+    // Fetch a new batch of jokes
+    const fetchJokeBatch = async () => {
         setIsLoading(true);
         setSheLaughed(false);
-        try {
-            const res = await fetch('https://icanhazdadjoke.com/', {
-                headers: { 'Accept': 'application/json' }
-            });
-            const data = await res.json();
-            setJoke(data.joke);
-        } catch (err) {
-            setJoke("Why did the scarecrow win an award? Because he was outstanding in his field!");
-        } finally {
-            setIsLoading(false);
+        const newBatch = await generateDadJoke();
+        setJokeBatch(newBatch);
+        setCurrentJokeIndex(0);
+        if (newBatch.length > 0) {
+            setJoke(newBatch[0]);
+        }
+        setIsLoading(false);
+    };
+
+    // Get next joke from local batch, or fetch new batch if empty
+    const nextJoke = async () => {
+        setSheLaughed(false);
+
+        // If we have more jokes in the batch
+        if (currentJokeIndex < jokeBatch.length - 1) {
+            const nextIndex = currentJokeIndex + 1;
+            setCurrentJokeIndex(nextIndex);
+            setJoke(jokeBatch[nextIndex]);
+        } else {
+            // Need to fetch new batch
+            await fetchJokeBatch();
         }
     };
 
     useEffect(() => {
-        fetchJoke();
+        fetchJokeBatch();
     }, []);
 
     return (
@@ -66,7 +82,7 @@ const DadJokes: React.FC<DadJokesProps> = ({ onBack }) => {
                     )}
 
                     <button
-                        onClick={fetchJoke}
+                        onClick={nextJoke}
                         disabled={isLoading}
                         className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                     >

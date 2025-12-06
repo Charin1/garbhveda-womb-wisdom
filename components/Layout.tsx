@@ -32,11 +32,12 @@ const Layout: React.FC<LayoutProps> = ({ children, headerContent, theme = 'MOM' 
         )}
 
         {/* Dynamic Header */}
-        {headerContent && (
-          <header className={`px-6 py-4 sticky top-0 z-20 backdrop-blur-md border-b ${isDad ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-gray-50'}`}>
-            {headerContent}
-          </header>
-        )}
+        <header className={`px-6 py-4 sticky top-0 z-20 backdrop-blur-md border-b flex flex-col gap-2 ${isDad ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-gray-50'}`}>
+          <div className={`text-xs font-serif tracking-widest uppercase text-center w-full ${isDad ? 'text-sky-400' : 'text-rose-quartz-600'}`}>
+            GarbhVeda
+          </div>
+          {headerContent}
+        </header>
 
         {/* Main Scrollable Content */}
         <main className="flex-1 px-5 py-6 overflow-y-auto pb-28 custom-scrollbar">
