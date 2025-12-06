@@ -101,5 +101,18 @@ async def get_dad_joke():
         raise HTTPException(status_code=500, detail="Failed to generate jokes")
     return {"jokes": jokes}
 
+class NameRequest(BaseModel):
+    gender: str
+    starting_letter: Optional[str] = None
+    preference: Optional[str] = None
+
+@app.post("/api/vedic-names")
+async def get_vedic_names(request: NameRequest):
+    names = await gemini_service.generate_vedic_names(request.gender, request.starting_letter, request.preference)
+    if not names:
+        # Return empty list instead of error to handle gracefully
+        return {"names": []}
+    return {"names": names}
+
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

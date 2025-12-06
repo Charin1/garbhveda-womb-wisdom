@@ -9,6 +9,7 @@ import PitraVani from './DadFeatures/PitraVani';
 import DadJokes from './DadFeatures/DadJokes';
 import BreathingExercise from './DadFeatures/BreathingExercise';
 import ProtectorPlayer from './DadFeatures/ProtectorPlayer';
+import VedicNameFinder from './shared/VedicNameFinder';
 
 interface DadDashboardProps {
     user: UserProfile;
@@ -34,6 +35,8 @@ const DadDashboard: React.FC<DadDashboardProps> = ({ user, onUpdateUser, onSwitc
                 return <BreathingExercise onBack={() => setActiveFeature(null)} />;
             case 'PROTECTOR':
                 return <ProtectorPlayer onBack={() => setActiveFeature(null)} />;
+            case 'NAMES':
+                return <VedicNameFinder onBack={() => setActiveFeature(null)} theme="DAD" />;
             default:
                 return null;
         }

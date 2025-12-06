@@ -102,3 +102,13 @@ export const generateDadJoke = async (): Promise<string[]> => {
     return ["Why don't eggs tell jokes? They'd crack each other up! (Fallback)"];
   }
 };
+
+export const generateVedicNames = async (gender: string, starting_letter?: string, preference?: string): Promise<any[]> => {
+  try {
+    const response = await api.post('/vedic-names', { gender, starting_letter, preference });
+    return response.data.names;
+  } catch (error) {
+    console.error('Error generating names:', error);
+    return [];
+  }
+};

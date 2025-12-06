@@ -1146,3 +1146,78 @@ async def get_initial_mantras() -> Optional[MantraResponse]:
     
     return MantraResponse(mantras=mantras_with_urls)
 
+
+async def generate_vedic_names(gender: str, starting_letter: Optional[str] = None, preference: Optional[str] = None) -> List[dict]:
+    print(f"[Gemini] Generating Vedic names for {gender}, letter: {starting_letter}...")
+    model = "gemini-2.0-flash"
+    
+    gender_instruction = f"a baby {gender}"
+    if gender.lower() == "unisex":
+        gender_instruction = "a baby (Gender-Neutral / Unisex names suitable for both boys and girls)"
+
+    theme_descriptions = {
+        "Modern": "Short, easy to pronounce, contemporary, stylish, unique but not obscure.",
+        "Traditional": "Rooted in Vedas/Puranas, classic, timeless, deep historical significance.",
+        "Nature": "Related to elements (earth, water, fire, air, sky), flowers, trees, celestial bodies.",
+        "Spiritual": "Related to gods, goddesses, divine qualities, soul, meditation, mantras.",
+        "Royal": "Names of kings, queens, signifying power, majesty, nobility, grandeur."
+    }
+    
+    preference_instruction = ""
+    if preference:
+        details = theme_descriptions.get(preference, preference)
+        preference_instruction = f"Target Theme: {preference} ({details}). Tailor names STRICTLY to this theme."
+
+    prompt_intro = "Vedic/Sanskrit names"
+    significance_constraint = "Names should have deep spiritual or historical significance."
+    
+    if preference == "Modern":
+        prompt_intro = "modern, trendy Indian names with Sanskrit roots"
+        significance_constraint = "Names should have a beautiful meaning and contemporary appeal."
+
+    prompt = f"""
+    Generate 5 unique, meaningful {prompt_intro} for {gender_instruction}.
+    Constraints:
+    1. {significance_constraint}
+    2. Provide the meaning and origin for each.
+    3. If starting letter is provided ({starting_letter}), you MUST STRICTLY ONLY generate names starting with {starting_letter}. Do NOT provide names with other letters.
+    4. {preference_instruction}
+    5. If Gender is Unisex, ensure the names are truly gender-neutral and commonly used for both.
+    
+    Return a JSON object with a key "names" containing a list of objects.
+    Each object should have: "name", "meaning", "origin", "significance".
+    Example: {{"names": [{{"name": "Aarav", "meaning": "Peaceful", "origin": "Sanskrit", "significance": "Represents calm"}} ]}}
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema={
+                    "type": "OBJECT",
+                    "properties": {
+                        "names": {
+                            "type": "ARRAY",
+                            "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "name": {"type": "STRING"},
+                                    "meaning": {"type": "STRING"},
+                                    "origin": {"type": "STRING"},
+                                    "significance": {"type": "STRING"}
+                                },
+                                "required": ["name", "meaning", "origin"]
+                            }
+                        }
+                    }
+                }
+            )
+        )
+        
+        data = json.loads(response.text)
+        return data.get("names", [])
+    except Exception as e:
+        print(f"Error generating names: {e}")
+        return []

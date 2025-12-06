@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Play, Pause, Volume2, Music, Mic2, Sparkles } from 'lucide-react';
+import { Sun, Play, Pause, Volume2, Music, Mic2, Sparkles, Search } from 'lucide-react';
 import Button from '../Button';
 import DreamJournal from '../DreamJournal';
 import { DailyCurriculum, ActivityCategory, Dream } from '../../types';
@@ -7,6 +7,7 @@ import { AUDIO_TRACKS } from '../../data/audioTracks';
 import RaagaPlayer from '../features/RaagaPlayer';
 import MantraPlayer from '../features/MantraPlayer';
 import VisualizationPlayer from '../features/VisualizationPlayer';
+import VedicNameFinder from '../shared/VedicNameFinder';
 
 interface SoulTabProps {
     curriculum: DailyCurriculum | null;
@@ -18,7 +19,7 @@ interface SoulTabProps {
 }
 
 const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, currentTrackId, isPlaying, onPlayTrack }) => {
-    const [activeFeature, setActiveFeature] = useState<'RAAGA' | 'MANTRA' | 'VIZ' | null>(null);
+    const [activeFeature, setActiveFeature] = useState<'RAAGA' | 'MANTRA' | 'VIZ' | 'NAMES' | null>(null);
     const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
     const spiritActivity = curriculum?.activities.find(a => a.category === ActivityCategory.SPIRITUALITY);
 
@@ -47,6 +48,10 @@ const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, curr
         return <VisualizationPlayer onBack={() => setActiveFeature(null)} />;
     }
 
+    if (activeFeature === 'NAMES') {
+        return <VedicNameFinder onBack={() => setActiveFeature(null)} theme="MOM" />;
+    }
+
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="text-center mb-4">
@@ -55,33 +60,42 @@ const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, curr
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-2">
                 <button
                     onClick={() => setActiveFeature('RAAGA')}
-                    className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-amber-200 transition-all"
+                    className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-amber-200 transition-all"
                 >
-                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-                        <Music size={20} />
+                    <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <Music size={16} />
                     </div>
-                    <span className="text-xs font-bold text-gray-700 text-center">Raaga Ritu</span>
+                    <span className="text-[10px] font-bold text-gray-700 text-center">Raaga</span>
                 </button>
                 <button
                     onClick={() => setActiveFeature('MANTRA')}
-                    className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-saffron-200 transition-all"
+                    className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-saffron-200 transition-all"
                 >
-                    <div className="w-10 h-10 rounded-full bg-saffron-100 text-saffron-600 flex items-center justify-center">
-                        <Mic2 size={20} />
+                    <div className="w-8 h-8 rounded-full bg-saffron-100 text-saffron-600 flex items-center justify-center">
+                        <Mic2 size={16} />
                     </div>
-                    <span className="text-xs font-bold text-gray-700 text-center">Mantra Naad</span>
+                    <span className="text-[10px] font-bold text-gray-700 text-center">Mantra</span>
                 </button>
                 <button
                     onClick={() => setActiveFeature('VIZ')}
-                    className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-indigo-200 transition-all"
+                    className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-indigo-200 transition-all"
                 >
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                        <Sparkles size={20} />
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <Sparkles size={16} />
                     </div>
-                    <span className="text-xs font-bold text-gray-700 text-center">Journeys</span>
+                    <span className="text-[10px] font-bold text-gray-700 text-center">Journey</span>
+                </button>
+                <button
+                    onClick={() => setActiveFeature('NAMES')}
+                    className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:border-rose-200 transition-all"
+                >
+                    <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+                        <Search size={16} />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-700 text-center">Names</span>
                 </button>
             </div>
 
