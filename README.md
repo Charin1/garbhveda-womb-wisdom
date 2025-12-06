@@ -1,8 +1,12 @@
 # GarbhVeda - Womb Wisdom
 
+*GarbhVeda is a tribute to the timeless wisdom of Garbh Sanskar, reimagined for the modern family.*
+
 [![Status](https://img.shields.io/badge/status-beta-blue)](https://github.com/charin1/mcp-nocode-db)
 
 ⚠️ This project is currently in **beta**. While it is more stable than earlier development versions, it may still contain bugs and is **not yet production-ready**.
+
+---
 
 **GarbhVeda** is a holistic Garbh Sanskar application that bridges ancient Vedic wisdom with modern neuroscience. It is designed to nurture the unborn child through specific daily activities that stimulate brain development, foster emotional bonding, and promote spiritual well-being for the mother.
 
@@ -11,6 +15,7 @@
 ---
 
 ## 🚀 Run Locally
+
 
 Follow these steps to get the project up and running on your local machine.
 
@@ -174,6 +179,15 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
 3.  **Role Switch**: Click the profile icon in the top right to switch between **Mom Mode** and **Dad Mode**.
 4.  **Refresh Content**: Most cards have a refresh button to generate new AI content for the day.
 
----
 
-*GarbhVeda is a tribute to the timeless wisdom of Garbh Sanskar, reimagined for the modern family.*
+## 🩺 Medical Disclaimer
+
+**IMPORTANT: PLEASE READ CAREFULLY**
+
+This application, including all its features (Sattvic Diet, Yoga, etc.), is designed for **educational and supportive purposes only**. It does **NOT** constitute medical advice, diagnosis, or treatment.
+
+*   **Consult Your Doctor**: Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition or pregnancy.
+*   **Safety First**: Before starting any new diet, exercise (including Yoga), or wellness routine, please obtain approval from your healthcare provider.
+*   **Emergency**: If you experience any pain, discomfort, or medical emergency, stop using the app immediately and contact your doctor or emergency services.
+
+By using GarbhVeda, you acknowledge that you are doing so voluntarily and at your own risk. The creators of this app are not responsible for any adverse effects resulting from the use of the information or tools provided herein.
