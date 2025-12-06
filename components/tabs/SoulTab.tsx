@@ -121,35 +121,6 @@ const SoulTab: React.FC<SoulTabProps> = ({ curriculum, dreams, onSaveDream, curr
                     </div>
                 )}
             </div>
-
-            {/* Audio Library List */}
-            <div>
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Mantra & Raaga Library</h3>
-                <div className="space-y-3">
-                    {AUDIO_TRACKS.map(track => (
-                        <div
-                            key={track.id}
-                            onClick={() => handleLibraryClick(track)}
-                            className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all ${currentTrackId === track.id ? 'bg-sage-50 border-sage-200' : 'bg-white border-gray-100 hover:border-sage-200'
-                                }`}
-                        >
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${currentTrackId === track.id ? 'bg-sage-500 text-white' : 'bg-gray-100 text-gray-400'
-                                }`}>
-                                {currentTrackId === track.id && isPlaying ? <div className="w-3 h-3 bg-white rounded-sm animate-spin" /> : <Play size={16} fill="currentColor" />}
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="text-sm font-medium text-gray-800">{track.title}</h4>
-                                <p className="text-xs text-gray-500">{track.category}</p>
-                            </div>
-                            {currentTrackId === track.id && (
-                                <div className="flex items-center gap-2">
-                                    <Volume2 size={16} className="text-sage-500" />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 };
