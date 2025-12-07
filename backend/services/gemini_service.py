@@ -6,7 +6,10 @@ import httpx
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from ..models import DailyCurriculum, Activity, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse
+from ..models import DailyCurriculum, Activity, DreamInterpretationRequest, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, Sankalpa
+from ..util.logger import setup_logger
+
+logger = setup_logger("gemini_service")
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -507,7 +510,27 @@ async def generate_daily_curriculum(week: int, mood: Optional[str] = None) -> Op
         return DailyCurriculum(**curriculum_data)
 
     except Exception as e:
-        print(f"[Gemini] Error generating curriculum: {e}")
+        logger.error(f"Error generating curriculum: {e}", exc_info=True)
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+             # Return a graceful fallback instead of crashing
+            return DailyCurriculum(
+                sankalpa=Sankalpa(
+                    virtue="Patience",
+                    description="The universe is replenishing its energy. Please take a moment to breathe and try again shortly.",
+                    mantra="Om Shanti Shanti Shanti"
+                ),
+                activities=[
+                    Activity(
+                        id="fallback_rest",
+                        category="SPIRITUALITY",
+                        title="Rest & Rejuvenate",
+                        description="Our AI guide needs a short break to recharge. Please practice deep breathing for 5 minutes.",
+                        durationMinutes=5,
+                        content="Sit comfortably, close your eyes, and focus on your breath. Inhale deeply for a count of 4, hold for 4, and exhale for 6.",
+                        resources=[]
+                    )
+                ]
+            )
         return None
 
 def validate_url(url: str) -> bool:

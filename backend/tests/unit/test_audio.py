@@ -3,7 +3,8 @@ import os
 import sys
 
 # Add project root to path so we can import backend modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add project root to path so we can import backend modules (3 levels up: unit -> tests -> backend -> root)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from backend.services import gemini_service
 
