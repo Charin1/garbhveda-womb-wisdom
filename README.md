@@ -160,6 +160,8 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
 *   **Kick Game**: Interact with the baby by tracking kicks together as a fun activity.
 *   **Protector Visualization**: Guided meditation specifically for the father to embrace his role as a protector.
 
+*   **Bio-Rhythm Sync**: A breathing exercise tool to sync your breath with your partner's, fostering deep connection.
+
 ---
 
 ## 🛠️ Tech Stack
