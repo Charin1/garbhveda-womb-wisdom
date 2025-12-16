@@ -1,4 +1,4 @@
-import { AppState, UserProfile, AppTab } from '../types';
+import { AppState, UserProfile, AppTab, AppConfig, ModelProvider } from '../types';
 
 const STORAGE_KEY = 'garbhVedaAppState';
 const STORAGE_VERSION = 1;
@@ -44,7 +44,12 @@ class StorageService {
                     volume: 0.7,
                     generatedImages: {},
                     completedActivities: [],
-                    lastSync: new Date().toISOString()
+                    lastSync: new Date().toISOString(),
+                    config: {
+                        modelProvider: ModelProvider.GEMINI,
+                        modelName: 'gemini-2.0-flash',
+                        groqApiKey: undefined
+                    }
                 };
 
                 // Save in new format
@@ -85,6 +90,16 @@ class StorageService {
      * Migrate state to current version if needed
      */
     private migrateIfNeeded(state: AppState): AppState {
+        // Ensure config exists (for existing users upgrading)
+        if (!state.config) {
+            console.log('[Storage] Adding missing config field during migration');
+            state.config = {
+                modelProvider: ModelProvider.GEMINI,
+                modelName: 'gemini-2.0-flash',
+                groqApiKey: undefined
+            };
+        }
+
         if (state.version === STORAGE_VERSION) {
             return state;
         }
@@ -113,7 +128,12 @@ class StorageService {
             volume: 0.7,
             generatedImages: {},
             completedActivities: [],
-            lastSync: new Date().toISOString()
+            lastSync: new Date().toISOString(),
+            config: {
+                modelProvider: ModelProvider.GEMINI,
+                modelName: 'gemini-2.0-flash',
+                groqApiKey: undefined
+            }
         };
     }
 
@@ -222,6 +242,38 @@ class StorageService {
      */
     isActivityCompleted(activityId: string): boolean {
         return this.state.completedActivities.includes(activityId);
+    }
+
+    /**
+     * Get config
+     */
+    getConfig(): AppConfig {
+        // Ensure config exists (safety check for existing users)
+        if (!this.state.config) {
+            this.state.config = {
+                modelProvider: ModelProvider.GEMINI,
+                modelName: 'gemini-2.0-flash',
+                groqApiKey: undefined
+            };
+            this.saveState(this.state);
+        }
+        return this.state.config;
+    }
+
+    /**
+     * Set config
+     */
+    setConfig(config: AppConfig): void {
+        this.state.config = config;
+        this.saveState(this.state);
+    }
+
+    /**
+     * Update config partially
+     */
+    updateConfig(updates: Partial<AppConfig>): void {
+        this.state.config = { ...this.state.config, ...updates };
+        this.saveState(this.state);
     }
 
     /**

@@ -6,18 +6,20 @@ import MoodTracker from './components/MoodTracker';
 import DreamJournal from './components/DreamJournal';
 import DadDashboard from './components/DadDashboard';
 import ResetButton from './components/ResetButton';
+import SettingsPage from './components/SettingsPage';
 import {
     Activity, ActivityCategory, UserProfile, AppTab, Mood, DailyCurriculum, Dream, UserRole
 } from './types';
 import { generateDailyCurriculum, generateAudio, generateImage } from './services/geminiService';
 import { storage } from './services/storageService';
+import { updateConfig } from './services/configService';
 import { FALLBACK_CURRICULUM } from './data/curriculum';
 import { AUDIO_TRACKS } from './data/audioTracks';
 import { useAudio } from './hooks/useAudio';
 import {
     Play, Pause, Volume2, RefreshCw, Sun, Moon,
     Wind, Music, Brain, Heart, Sparkles, Footprints,
-    ChevronRight, ExternalLink, Lightbulb, Eye, CheckCircle, Info, Users
+    ChevronRight, ExternalLink, Lightbulb, Eye, CheckCircle, Info, Users, Settings
 } from 'lucide-react';
 import HomeTab from './components/tabs/HomeTab';
 import LearnTab from './components/tabs/LearnTab';
@@ -47,6 +49,7 @@ const App: React.FC = () => {
     const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
     const [showPuzzleSolution, setShowPuzzleSolution] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
 
     // --- Initialization ---
     useEffect(() => {
@@ -56,6 +59,25 @@ const App: React.FC = () => {
             console.log('[App] User loaded from storage:', savedUser.name);
             setUser(savedUser);
         }
+
+        // Sync config with backend
+        const syncConfig = async () => {
+            const currentConfig = storage.getConfig();
+            console.log('[App] Syncing config to backend:', currentConfig);
+            if (currentConfig) {
+                try {
+                    await updateConfig({
+                        modelProvider: currentConfig.modelProvider,
+                        modelName: currentConfig.modelName,
+                        groqApiKey: currentConfig.groqApiKey
+                    });
+                    console.log('[App] Config synced with backend successfully');
+                } catch (err) {
+                    console.error('[App] Failed to sync config:', err);
+                }
+            }
+        };
+        syncConfig();
 
         // Load volume setting
         const savedVolume = storage.getVolume();
@@ -358,6 +380,13 @@ const App: React.FC = () => {
                             >
                                 <Users size={12} /> Switch Role
                             </button>
+                            <button
+                                onClick={() => setShowSettings(true)}
+                                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors"
+                                title="Settings"
+                            >
+                                <Settings size={16} />
+                            </button>
                             <ResetButton onReset={handleReset} variant="icon" />
                             <div
                                 className="w-10 h-10 rounded-full bg-sage-100 text-sage-600 flex items-center justify-center font-bold cursor-pointer hover:bg-sage-200 transition-colors"
@@ -410,6 +439,15 @@ const App: React.FC = () => {
             </Layout>
 
             <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+
+            {/* Settings Modal */}
+            {showSettings && (
+                <SettingsPage
+                    user={user}
+                    onUpdateUser={updateUser}
+                    onClose={() => setShowSettings(false)}
+                />
+            )}
         </>
     );
 };

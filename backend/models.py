@@ -77,3 +77,22 @@ class Mantra(BaseModel):
 
 class MantraResponse(BaseModel):
     mantras: List[Mantra]
+
+class AppConfig(BaseModel):
+    """Application configuration for model selection and user settings"""
+    model_provider: Literal["gemini", "groq"] = "gemini"
+    model_name: Optional[str] = None  # If None, use default for provider
+    groq_api_key: Optional[str] = None  # Stored in backend_config.json
+    mother_name: Optional[str] = None
+    father_name: Optional[str] = None
+    pregnancy_week: Optional[int] = None
+
+class ConfigUpdateRequest(BaseModel):
+    """Request to update configuration"""
+    model_provider: Optional[Literal["gemini", "groq"]] = None
+    model_name: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    mother_name: Optional[str] = None
+    father_name: Optional[str] = None
+    pregnancy_week: Optional[int] = None
+

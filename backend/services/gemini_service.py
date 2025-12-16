@@ -8,6 +8,7 @@ from google.genai import types
 from dotenv import load_dotenv
 from ..models import DailyCurriculum, Activity, DreamInterpretationRequest, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, Sankalpa
 from ..util.logger import setup_logger
+from .llm_factory import LLMFactory, LLMConfig, ModelProvider
 
 logger = setup_logger("gemini_service")
 
@@ -27,6 +28,11 @@ if not os.getenv("VITE_GEMINI_API_KEY"):
 api_key = os.getenv("VITE_GEMINI_API_KEY")
 if not api_key:
     print("Warning: VITE_GEMINI_API_KEY not found in environment variables or .env.local")
+
+# Load Groq API key from environment as fallback
+groq_api_key_from_env = os.getenv("GROQ_API_KEY")
+if groq_api_key_from_env:
+    print("[Gemini] Found GROQ_API_KEY in environment")
 
 client = genai.Client(api_key=api_key)
 
@@ -432,7 +438,11 @@ from typing import Optional
 
 async def generate_daily_curriculum(week: int, mood: Optional[str] = None) -> Optional[DailyCurriculum]:
     print(f"[Gemini] Generating curriculum content for week {week}, mood: {mood}...")
-    model = "gemini-2.0-flash"
+    
+    wrapper = _get_llm_wrapper(None, None) # Use current config
+    if not wrapper:
+        print("[Gemini] Error: No LLM wrapper available")
+        return None
 
     mood_instruction = ""
     if mood:
@@ -468,16 +478,14 @@ async def generate_daily_curriculum(week: int, mood: Optional[str] = None) -> Op
     """
 
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=content_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                response_mime_type="application/json"
-            )
+        # Use simple generate (sync) for now as wrappers handle sync/async internally if needed
+        # or we update wrappers to be truly async later. Given current wrappers are sync:
+        text = wrapper.generate(
+            prompt=content_prompt,
+            system_instruction=SYSTEM_INSTRUCTION,
+            response_format="json"
         )
 
-        text = response.text
         if not text:
             return None
 
@@ -714,7 +722,6 @@ async def find_resources_for_activity(title: str, description: str, category: st
         )]
 
 async def interpret_dream(dream_text: str) -> Optional[DreamInterpretationResponse]:
-    model = "gemini-2.0-flash"
     prompt = f"""
       A pregnant woman has recorded this dream: "{dream_text}".
       
@@ -723,32 +730,27 @@ async def interpret_dream(dream_text: str) -> Optional[DreamInterpretationRespon
       2. A short, calming positive affirmation related to the dream.
       
       Keep the tone soothing, maternal, and wise.
+      
+      Return ONLY a JSON object with this structure:
+      {{
+        "interpretation": "Interpretation text...",
+        "affirmation": "Affirmation text..."
+      }}
     """
 
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "interpretation": {"type": "STRING"},
-                        "affirmation": {"type": "STRING"}
-                    }
-                }
-            )
-        )
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
+            return None
+            
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
         
-        text = response.text
         if not text:
             return None
             
         return DreamInterpretationResponse(**json.loads(text))
     except Exception as e:
-        print(f"[Gemini] Error interpreting dream: {e}")
+        logger.error(f"Error interpreting dream: {e}", exc_info=True)
         return None
 
 async def generate_audio(text: str) -> Optional[bytes]:
@@ -792,7 +794,6 @@ async def generate_audio(text: str) -> Optional[bytes]:
 
 async def generate_dad_joke() -> List[str]:
     print("[Gemini] Generating batch of 50 dad jokes...")
-    model = "gemini-2.0-flash"
     prompt = """
     Generate 50 distinct "dad jokes".
     Constraints:
@@ -805,63 +806,28 @@ async def generate_dad_joke() -> List[str]:
     Example: {"jokes": ["Joke 1", "Joke 2", ...]}
     """
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "jokes": {
-                            "type": "ARRAY",
-                            "items": {"type": "STRING"}
-                        }
-                    }
-                }
-            )
-        )
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
+            return ["Why did the scarecrow win an award? Because he was outstanding in his field!"]
+
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
+
+        if not text:
+            return ["Why did the scarecrow win an award? Because he was outstanding in his field!"]
         
-        data = json.loads(response.text)
+        data = json.loads(text)
         jokes = data.get("jokes", [])
         print(f"[Gemini] Generated {len(jokes)} jokes.")
         return jokes
     except Exception as e:
         print(f"Error generating jokes: {e}")
         return ["Why did the scarecrow win an award? Because he was outstanding in his field!"]
+
+async def generate_image(prompt: str) -> Optional[str]:
     print(f"[Gemini] Generating image for prompt: \"{prompt}\"")
     try:
-        # Using Imagen 3 model
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-exp', # Or specific imagen model if available via this SDK
-            contents=prompt + " style: soft watercolor, spiritual, dreamy, pastel colors, high quality.",
-            config=types.GenerateContentConfig(
-                # For image generation, we might need specific config or model
-                # If the SDK unifies it, great. If not, we might need to check if 'gemini-2.0-flash' supports image gen directly 
-                # or if we need 'imagen-3.0-generate-001' etc.
-                # The TS code used 'models/gemini-3-pro-image-preview' which seems like a placeholder or specific preview.
-                # Let's assume 'gemini-2.0-flash-exp' can do it or use a known image model.
-                # Actually, for image gen, we usually expect a specific image model.
-            )
-        )
-        
-        # Wait, the TS code used 'models/gemini-3-pro-image-preview'. 
-        # Let's try to use a standard Imagen model if possible, or stick to what the TS code implied was working (maybe a multi-modal model).
-        # However, 'gemini-2.0-flash' is text/multimodal-in -> text-out. 
-        # Image generation usually requires an Imagen model.
-        # Let's assume we can use 'imagen-3.0-generate-001' for now if we have access, or try the one from TS.
-        
-        # Let's try to be safe and use the same model string as TS if it works, or a standard one.
-        # The TS code had: model: 'models/gemini-3-pro-image-preview'
-        
-        # For now, I will use a placeholder or try to use the same.
-        # But actually, the Python SDK `genai.Client` is new.
-        
-        # Let's try to use the `imagen-3.0-generate-001` if available.
-        
-        # Actually, let's look at the TS code again. It used `gemini-3-pro-image-preview`.
-        # I will use `imagen-3.0-generate-001` as it is the standard for Imagen 3.
-        
+        # Using Imagen 3 model via Gemini API standard
+        # Note: This requires a model that supports image generation, e.g., imagen-3.0-generate-001
         response = client.models.generate_images(
             model='imagen-3.0-generate-001',
             prompt=prompt + " style: soft watercolor, spiritual, dreamy, pastel colors, high quality.",
@@ -883,65 +849,40 @@ async def generate_dad_joke() -> List[str]:
 
 async def generate_financial_wisdom() -> Optional[FinancialWisdomResponse]:
     print("[Gemini] Generating financial wisdom...")
-    model = "gemini-2.0-flash"
-    
     prompt = """
-    Generate 3 distinct, practical, and valuable financial tips for expecting parents.
-    Focus on budgeting for baby, long-term savings, insurance, or smart spending.
+    Generate 1 practical financial tip for new parents.
+    Focus on saving, budgeting for baby, or investment.
     
-    Return ONLY a JSON object with this structure:
+    Return JSON with structure:
     {
       "tips": [
         {
           "id": "unique_id",
-          "title": "Short catchy title",
-          "content": "2-3 sentences of actionable advice.",
-          "icon": "PiggyBank" | "TrendingUp" | "DollarSign" | "Wallet" | "CreditCard"
+          "title": "Title",
+          "content": "Explanation and actionable step combined.",
+          "icon": "PiggyBank" 
         }
       ]
     }
+    Allowed icons: "PiggyBank", "TrendingUp", "DollarSign", "Wallet", "CreditCard"
     """
-
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "tips": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "id": {"type": "STRING"},
-                                    "title": {"type": "STRING"},
-                                    "content": {"type": "STRING"},
-                                    "icon": {"type": "STRING", "enum": ["PiggyBank", "TrendingUp", "DollarSign", "Wallet", "CreditCard"]}
-                                },
-                                "required": ["id", "title", "content", "icon"]
-                            }
-                        }
-                    }
-                }
-            )
-        )
-
-        text = response.text
-        if not text:
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
             return None
 
-        return FinancialWisdomResponse(**json.loads(text))
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
 
+        if not text:
+            return None
+            
+        return FinancialWisdomResponse(**json.loads(text))
     except Exception as e:
-        print(f"[Gemini] Error generating financial wisdom: {e}")
+        print(f"Error generating financial wisdom: {e}")
         return None
 
 async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
     print("[Gemini] Generating rhythmic math activities...")
-    model = "gemini-2.0-flash"
     
     prompt = """
     Generate 3 distinct Rhythmic Math activities for prenatal education.
@@ -961,33 +902,12 @@ async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
     """
 
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "activities": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "id": {"type": "STRING"},
-                                    "title": {"type": "STRING"},
-                                    "duration": {"type": "STRING"},
-                                    "bpm": {"type": "INTEGER"}
-                                },
-                                "required": ["id", "title", "duration", "bpm"]
-                            }
-                        }
-                    }
-                }
-            )
-        )
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
+            return None
+            
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
 
-        text = response.text
         if not text:
             return None
 
@@ -999,7 +919,6 @@ async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
 
 async def generate_raaga_recommendations() -> Optional[RaagaResponse]:
     print("[Gemini] Generating Raaga recommendations...")
-    model = "gemini-2.0-flash"
     
     # Updated prompt: We don't ask for URLs here, just the Raaga details
     prompt = """
@@ -1021,62 +940,32 @@ async def generate_raaga_recommendations() -> Optional[RaagaResponse]:
     """
 
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "raagas": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "id": {"type": "STRING"},
-                                    "title": {"type": "STRING"},
-                                    "time": {"type": "STRING"},
-                                    "benefit": {"type": "STRING"},
-                                    "duration": {"type": "STRING"}
-                                },
-                                "required": ["id", "title", "time", "benefit", "duration"]
-                            }
-                        }
-                    }
-                }
-            )
-        )
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
+            return None
+            
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
 
-        text = response.text
         if not text:
             return None
-        
-        data = json.loads(text)
-        raagas_data = data.get("raagas", [])
-        
-        print(f"[Gemini] Generated {len(raagas_data)} raaga suggestions. Now finding videos...")
-        
-        raagas_with_urls = []
-        
-        # Now use the ReAct agent to find verified videos for each
-        for raaga in raagas_data:
-            print(f"\n[Gemini] Finding video for: {raaga['title']}")
-            
-            # Context for search
-            context = f"{raaga['time']} {raaga['benefit']} instrumental meditation"
-            
-            url = await react_agent.find_verified_video(raaga['title'], context)
-            
-            raaga_with_url = {**raaga, "url": url}
-            raagas_with_urls.append(raaga_with_url)
-            print(f"[Gemini] Final URL for {raaga['title']}: {url}")
 
-        return RaagaResponse(raagas=raagas_with_urls)
-
+        raaga_data = json.loads(text)
+        
+        # Now find YouTube links for these raagas
+        raagas_with_links = []
+        for raaga in raaga_data.get("raagas", []):
+            search_query = f"{raaga['title']} indian classical raaga instrumental for pregnancy"
+            url = await react_agent.find_youtube_video(search_query)
+            raaga['url'] = url
+            raagas_with_links.append(raaga)
+            
+        raaga_data["raagas"] = raagas_with_links
+        
+        return RaagaResponse(**raaga_data)
+        
     except Exception as e:
-        print(f"[Gemini] Error generating raaga recommendations: {e}")
-        return None
+        print(f"[Gemini] Error generating raagas: {e}")
+        return None   
 
 async def verify_youtube_url(url: str) -> bool:
     """Verifies a YouTube URL using the oEmbed API."""
@@ -1171,8 +1060,7 @@ async def get_initial_mantras() -> Optional[MantraResponse]:
 
 
 async def generate_vedic_names(gender: str, starting_letter: Optional[str] = None, preference: Optional[str] = None) -> List[dict]:
-    print(f"[Gemini] Generating Vedic names for {gender}, letter: {starting_letter}...")
-    model = "gemini-2.0-flash"
+    print(f"[Gemini] Generating Vedic names for {gender}, letter: {starting_letter}, preference: {preference}")
     
     gender_instruction = f"a baby {gender}"
     if gender.lower() == "unisex":
@@ -1213,34 +1101,122 @@ async def generate_vedic_names(gender: str, starting_letter: Optional[str] = Non
     """
     
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema={
-                    "type": "OBJECT",
-                    "properties": {
-                        "names": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "name": {"type": "STRING"},
-                                    "meaning": {"type": "STRING"},
-                                    "origin": {"type": "STRING"},
-                                    "significance": {"type": "STRING"}
-                                },
-                                "required": ["name", "meaning", "origin"]
-                            }
-                        }
-                    }
-                }
-            )
-        )
+        wrapper = _get_llm_wrapper(None, None)
+        if not wrapper:
+            return []
+            
+        text = wrapper.generate(prompt=prompt, system_instruction=SYSTEM_INSTRUCTION, response_format="json")
         
-        data = json.loads(response.text)
+        if not text:
+            return []
+            
+        data = json.loads(text)
         return data.get("names", [])
     except Exception as e:
         print(f"Error generating names: {e}")
         return []
+
+
+
+# ============= Model Configuration Functions =============
+
+# Current model configuration
+_current_model_provider = ModelProvider.GEMINI
+_current_model_name = "gemini-2.0-flash"
+_groq_api_key = groq_api_key_from_env
+_llm_wrappers = {}  # Cache wrappers
+
+def _get_llm_wrapper(provider: str, model_name: Optional[str] = None):
+    """Get or create LLM wrapper for the specified provider"""
+    global _llm_wrappers
+    
+    # DEBUG: Log current state
+    print(f"[LLM Debug] _get_llm_wrapper called: provider_arg={provider}, model_arg={model_name}")
+    print(f"[LLM Debug] Current globals: _current_model_provider={_current_model_provider}, _current_model_name={_current_model_name}")
+    
+    # Use config globals if params are None, with fallbacks
+    prov_enum = ModelProvider(provider) if provider else _current_model_provider
+    
+    print(f"[LLM Debug] Resolved provider enum: {prov_enum}")
+    
+    # Provide defaults if model_name is missing
+    if not model_name:
+        model_name = _current_model_name  # Use the configured model name first
+        if not model_name:  # If still None, use provider defaults
+            if prov_enum == ModelProvider.GROQ:
+                model_name = "llama-3.3-70b-versatile"
+            else:
+                model_name = "gemini-2.0-flash"
+            
+    cache_key = f"{prov_enum.value}:{model_name}"
+    print(f"[LLM Debug] Cache key: {cache_key}, existing cache: {list(_llm_wrappers.keys())}")
+    
+    if cache_key in _llm_wrappers:
+        print(f"[LLM Debug] Returning cached wrapper for {cache_key}")
+        return _llm_wrappers[cache_key]
+        
+    api_key = None
+    if prov_enum == ModelProvider.GROQ:
+        api_key = _groq_api_key
+        if not api_key:
+             print("[Config] Warning: No Groq API key found but Groq provider requested")
+             return None
+    else:
+        api_key = os.getenv("VITE_GEMINI_API_KEY")
+        
+    try:
+        config = LLMConfig(
+            provider=prov_enum,
+            model_name=model_name,
+            api_key=api_key or ""
+        )
+        wrapper = LLMFactory.create(config)
+        _llm_wrappers[cache_key] = wrapper
+        return wrapper
+    except Exception as e:
+        print(f"[Config] Error creating LLM wrapper: {e}")
+        return None
+
+
+def set_groq_api_key(api_key: str):
+    """Set the Groq API key for use with Groq models."""
+    global _groq_api_key, _llm_wrappers
+    
+    new_key = api_key or groq_api_key_from_env
+    if new_key != _groq_api_key:
+        _groq_api_key = new_key
+        _llm_wrappers.clear() # Clear cache when key changes
+        print(f"[Config] Groq API key updated")
+
+
+def set_model_config(provider: str, model_name: Optional[str] = None):
+    """Set the current model provider and name."""
+    global _current_model_provider, _current_model_name, _llm_wrappers
+    
+    print(f"[Config Debug] set_model_config called: provider={provider}, model_name={model_name}")
+    print(f"[Config Debug] BEFORE: _current_model_provider={_current_model_provider}, _current_model_name={_current_model_name}")
+    
+    try:
+        new_provider = ModelProvider(provider)
+        _current_model_provider = new_provider
+        _current_model_name = model_name
+        
+        print(f"[Config Debug] AFTER: _current_model_provider={_current_model_provider}, _current_model_name={_current_model_name}")
+        
+        # Clear cache to force new wrapper creation with new config
+        _llm_wrappers.clear()
+        print(f"[Config Debug] Cleared LLM wrapper cache")
+        
+        # Pre-warm the wrapper
+        _get_llm_wrapper(None, None)  # Use None to test global reading
+        
+        print(f"[Config] Model config updated: provider={provider}, model={model_name}")
+    except ValueError:
+        print(f"[Config] Invalid provider: {provider}")
+
+def get_current_model_config():
+    """Get the current model configuration."""
+    return {
+        "provider": _current_model_provider.value if isinstance(_current_model_provider, ModelProvider) else _current_model_provider,
+        "model_name": _current_model_name
+    }

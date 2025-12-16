@@ -1,0 +1,8 @@
+{
+  "model_provider": "groq",
+  "model_name": "openai/gpt-oss-120b",
+  "groq_api_key": null,
+  "mother_name": null,
+  "father_name": null,
+  "pregnancy_week": null
+}

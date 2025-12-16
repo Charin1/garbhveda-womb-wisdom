@@ -5,6 +5,17 @@ export enum AppTab {
   SOUL = 'SOUL'      // Spirituality (Soul)
 }
 
+export enum ModelProvider {
+  GEMINI = 'gemini',
+  GROQ = 'groq'
+}
+
+export interface AppConfig {
+  modelProvider: ModelProvider;
+  modelName: string;
+  groqApiKey?: string;
+}
+
 export enum Mood {
   HAPPY = 'HAPPY',
   CALM = 'CALM',
@@ -135,6 +146,7 @@ export interface AppState {
   generatedImages: { [activityId: string]: string }; // Map of activity ID to image URL
   completedActivities: string[]; // Activity IDs
   lastSync: string; // ISO timestamp
+  config: AppConfig; // Model and API configuration
 }
 
 export interface FinancialTip {

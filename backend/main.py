@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse
+from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, AppConfig, ConfigUpdateRequest
 from .services import gemini_service
 import uvicorn
 import os
+import json
+from pathlib import Path
 from fastapi.responses import Response
 
 app = FastAPI()
@@ -114,5 +116,94 @@ async def get_vedic_names(request: NameRequest):
         return {"names": []}
     return {"names": names}
 
+# Config Persistence
+CONFIG_FILE = Path(__file__).parent / "backend_config.json"
+
+def load_config_from_file() -> AppConfig:
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+            print(f"[Config] Loaded config from file: provider={data.get('model_provider')}")
+            return AppConfig(**data)
+        except Exception as e:
+            print(f"[Config] Failed to load config file: {e}")
+    return AppConfig()
+
+def save_config_to_file(config: AppConfig):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            # Use .dict() method from Pydantic models
+            json.dump(config.dict(), f, indent=2)
+        print(f"[Config] Persistent config saved to {CONFIG_FILE.name}")
+    except Exception as e:
+        print(f"[Config] Failed to save config: {e}")
+
+# Initialize config from file on startup
+_app_config = load_config_from_file()
+
+# Apply loaded config to service immediately
+gemini_service.set_model_config(_app_config.model_provider, _app_config.model_name)
+if _app_config.groq_api_key:
+    gemini_service.set_groq_api_key(_app_config.groq_api_key)
+
+@app.get("/api/config", response_model=AppConfig)
+async def get_config():
+    """Get current application configuration"""
+    # Don't return the API key for security
+    config_copy = AppConfig(
+        model_provider=_app_config.model_provider,
+        model_name=_app_config.model_name,
+        groq_api_key=None,  # Never send API key back
+        mother_name=_app_config.mother_name,
+        father_name=_app_config.father_name,
+        pregnancy_week=_app_config.pregnancy_week
+    )
+    return config_copy
+
+@app.post("/api/config", response_model=AppConfig)
+async def update_config(request: ConfigUpdateRequest):
+    """Update application configuration"""
+    global _app_config
+    
+    print(f"[Config API] Received update request: provider={request.model_provider}, model={request.model_name}, has_api_key={request.groq_api_key is not None and len(request.groq_api_key or '') > 0}")
+    
+    if request.model_provider is not None:
+        _app_config.model_provider = request.model_provider
+    if request.model_name is not None:
+        _app_config.model_name = request.model_name
+    if request.groq_api_key is not None:
+        # If empty string sent, clear it? Or just update. 
+        # Assuming empty string means clear or update.
+        _app_config.groq_api_key = request.groq_api_key
+        # Update the gemini_service with the new API key
+        gemini_service.set_groq_api_key(request.groq_api_key)
+        
+    # User details updates
+    if request.mother_name is not None:
+        _app_config.mother_name = request.mother_name
+    if request.father_name is not None:
+        _app_config.father_name = request.father_name
+    if request.pregnancy_week is not None:
+        _app_config.pregnancy_week = request.pregnancy_week
+    
+    # Update model provider in gemini_service
+    gemini_service.set_model_config(_app_config.model_provider, _app_config.model_name)
+    
+    # Save to file
+    save_config_to_file(_app_config)
+    
+    print(f"[Config API] Config updated and saved: provider={_app_config.model_provider}, model={_app_config.model_name}")
+    
+    return AppConfig(
+        model_provider=_app_config.model_provider,
+        model_name=_app_config.model_name,
+        groq_api_key=None,  # Never send API key back
+        mother_name=_app_config.mother_name,
+        father_name=_app_config.father_name,
+        pregnancy_week=_app_config.pregnancy_week
+    )
+
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+
