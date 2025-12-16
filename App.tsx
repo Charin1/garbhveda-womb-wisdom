@@ -28,7 +28,8 @@ import SoulTab from './components/tabs/SoulTab';
 
 const App: React.FC = () => {
     // --- State Management ---
-    const [activeTab, setActiveTab] = useState<AppTab>(storage.getActiveTab());
+    // Always start on HOME tab for consistent UX
+    const [activeTab, setActiveTab] = useState<AppTab>(AppTab.HOME);
     const [user, setUser] = useState<UserProfile | null>(null);
 
     // Data State
