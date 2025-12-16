@@ -33,6 +33,8 @@ Before you begin, ensure you have the following installed:
     *   **Check**: Run `python3 --version` (should be 3.9 or higher).
 *   **Gemini API Key**: You need an API key from Google's Gemini to power the AI features.
     *   Get it here: [Google AI Studio](https://aistudio.google.com/app/apikey)
+*   **Groq API Key (Optional)**: For faster AI responses using Groq's LLMs.
+    *   Get it here: [Groq Console](https://console.groq.com/keys)
 
 ### 2. Clone the Repository
 
@@ -84,9 +86,10 @@ The frontend is the user interface of the application.
     ```
 3.  **Configure Environment Variables:**
     *   Create a file named `.env.local` in the root folder.
-    *   Add your Gemini API Key:
+    *   Add your API Keys:
         ```env
-        VITE_GEMINI_API_KEY=your_actual_api_key_here
+        VITE_GEMINI_API_KEY=your_gemini_api_key_here
+        GROQ_API_KEY=your_groq_api_key_here  # Optional
         ```
 4.  **Start the Frontend:**
     ```bash
@@ -167,19 +170,23 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
 ## 🛠️ Tech Stack
 
 - **Frontend**: React, Vite, TypeScript, Tailwind CSS
-- **AI Integration**: Google Gemini API (`@google/genai`)
-- **Backend API**: Python FastAPI
+- **AI Integration**: Google Gemini API + Groq (LLaMA, Qwen models)
+- **Backend API**: Python FastAPI with LLM Factory pattern
 - **Icons**: Lucide React
-- **State Management**: React Hooks & Context
+- **State Management**: React Hooks & Local Storage persistence
 
 ---
 
 ## 📱 Usage Guide
 
 1.  **Onboarding**: When you first load the app, enter your name and current pregnancy week. This personalizes all content (Yoga, Diet, Baby Development info).
-2.  **Navigation**: use the bottom navigation bar to switch between the four main pillars.
+2.  **Navigation**: Use the bottom navigation bar to switch between the four main pillars.
 3.  **Role Switch**: Click the profile icon in the top right to switch between **Mom Mode** and **Dad Mode**.
-4.  **Refresh Content**: Most cards have a refresh button to generate new AI content for the day.
+4.  **Settings**: Click the gear icon ⚙️ to configure:
+    *   **AI Model Provider**: Choose between Gemini or Groq
+    *   **Model Selection**: Pick specific models (e.g., llama-3.3-70b, gemini-2.0-flash)
+    *   **API Keys**: Enter your Groq API key for faster responses
+5.  **Refresh Content**: Most cards have a refresh button to generate new AI content for the day.
 
 
 ## 🩺 Medical Disclaimer
