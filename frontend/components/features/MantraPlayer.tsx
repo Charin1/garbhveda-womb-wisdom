@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Sun, RotateCw, ExternalLink, Volume2 } from 'lucide-react';
+import { Play, Pause, Sun, RotateCw, ExternalLink, Volume2, RotateCcw, RefreshCw } from 'lucide-react';
 import { getInitialMantras } from '../../services/geminiService';
 import { Mantra } from '../../types';
 
@@ -80,6 +80,23 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack, initialPlayId }) =>
         }
     };
 
+    const handleRefresh = async () => {
+        setInitialLoading(true);
+        // Collect current URLs to exclude from next fetch (for variety)
+        // Only exclude if they are valid URLs
+        const excludeUrls = mantras
+            .map(m => m.url)
+            .filter(url => url && (url.includes('youtube.com') || url.includes('youtu.be')));
+
+        const defaults = await getInitialMantras(excludeUrls);
+        if (defaults && defaults.length > 0) {
+            setMantras(defaults);
+            // Optionally reset current mantra if it's not valid anymore, or keep it
+            setCurrentMantra(prev => defaults.find(m => m.id === prev.id) || defaults[0]);
+        }
+        setInitialLoading(false);
+    };
+
     const isSearchUrl = !isDirectVideoUrl(currentMantra.url);
 
     return (
@@ -111,10 +128,10 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack, initialPlayId }) =>
             </div>
 
             {/* Counter Circle */}
-            <div className="flex justify-center mb-8">
+            <div className="flex flex-col items-center mb-8">
                 <div
                     onClick={handleTap}
-                    className="w-64 h-64 rounded-full border-8 border-saffron-100 flex flex-col items-center justify-center relative cursor-pointer active:scale-95 transition-transform shadow-lg bg-white"
+                    className="w-64 h-64 rounded-full border-8 border-saffron-100 flex flex-col items-center justify-center relative cursor-pointer active:scale-95 transition-transform shadow-lg bg-white mb-4"
                 >
                     <div className="absolute inset-0 rounded-full border-8 border-saffron-500 transition-all duration-300"
                         style={{ clipPath: `inset(${100 - (counter / currentMantra.count) * 100}% 0 0 0)` }}></div>
@@ -123,16 +140,26 @@ const MantraPlayer: React.FC<MantraPlayerProps> = ({ onBack, initialPlayId }) =>
                     <span className="text-sm text-gray-400 uppercase tracking-widest z-10">of {currentMantra.count}</span>
                     <p className="text-xs text-saffron-400 mt-2 z-10 font-medium">Tap to Count</p>
                 </div>
+
+                <button
+                    onClick={(e) => { e.stopPropagation(); setCounter(0); }}
+                    className="text-xs text-gray-400 hover:text-saffron-500 font-medium flex items-center gap-1 px-3 py-1 rounded-full hover:bg-gray-50 transition-colors"
+                >
+                    <RotateCcw size={12} /> Reset Count
+                </button>
             </div>
 
             {/* Controls */}
             <div className="flex justify-center gap-4 mb-8">
                 <button
-                    onClick={() => setCounter(0)}
-                    className="p-3 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    onClick={handleRefresh}
+                    className={`p-3 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 ${initialLoading ? 'animate-spin' : ''}`}
+                    title="Refresh Links"
+                    disabled={initialLoading}
                 >
-                    <RotateCw size={20} />
+                    <RefreshCw size={20} />
                 </button>
+
                 <button
                     onClick={handlePlayClick}
                     className="px-6 py-3 bg-saffron-500 text-white rounded-full font-bold shadow-md hover:bg-saffron-600 flex items-center gap-2"

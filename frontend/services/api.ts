@@ -6,6 +6,7 @@ const api = axios.create({
     baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': import.meta.env.VITE_API_ACCESS_KEY || '',
     },
 });
 

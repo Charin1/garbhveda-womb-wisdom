@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, Query, status
+from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, AppConfig, ConfigUpdateRequest
@@ -8,8 +9,34 @@ import os
 import json
 from pathlib import Path
 from fastapi.responses import Response
+from dotenv import load_dotenv
 
-app = FastAPI()
+# Load env variables from parent directory if .env.local exists there
+# Or just load from environment (assuming uvicorn loads them or we load manually)
+load_dotenv(Path(__file__).parent.parent / ".env.local")
+
+# Security Scheme
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    # In production, use os.getenv("API_ACCESS_KEY")
+    # specific value for verification
+    SERVER_API_KEY = os.getenv("API_ACCESS_KEY")
+    
+    # If no key configured on server, skip auth (dev mode fallback)
+    if not SERVER_API_KEY:
+        return None
+        
+    if api_key_header == SERVER_API_KEY:
+        return api_key_header
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Could not validate credentials",
+    )
+
+# Apply global security if key is present
+app = FastAPI(dependencies=[Security(get_api_key)])
 
 # Configure CORS
 origins = [
@@ -90,11 +117,23 @@ async def get_initial_raagas():
     return raagas
 
 @app.get("/api/mantras/defaults", response_model=MantraResponse)
-async def get_initial_mantras():
-    mantras = await gemini_service.get_initial_mantras()
-    if not mantras:
-        raise HTTPException(status_code=500, detail="Failed to fetch initial mantras")
-    return mantras
+async def get_initial_mantras(
+    api_key: str = Security(get_api_key),
+    exclude: list[str] = Query(default=[])
+):
+    try:
+        if exclude:
+            print(f"[API] Received request to exclude {len(exclude)} URLs from refresh")
+        mantras = await gemini_service.get_initial_mantras(exclude_urls=exclude)
+        if not mantras:
+            raise HTTPException(status_code=500, detail="Failed to fetch initial mantras (service returned empty)")
+        return mantras
+    except Exception as e:
+        print(f"Error fetching mantras: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching mantras: {str(e)}"
+        )
 
 @app.get("/api/dad-joke")
 async def get_dad_joke():

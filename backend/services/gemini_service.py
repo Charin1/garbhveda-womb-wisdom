@@ -395,7 +395,7 @@ Find at least 3 different YouTube videos.
             traceback.print_exc()
             return []
     
-    async def find_verified_video(self, search_term: str, context: str = "") -> Optional[str]:
+    async def find_verified_video(self, search_term: str, context: str = "", exclude_urls: List[str] = None) -> Optional[str]:
         """
         Main ReAct loop: Search YouTube directly, Verify, Return best result.
         
@@ -403,30 +403,53 @@ Find at least 3 different YouTube videos.
         1. search_youtube_direct - Direct YouTube search (primary)
         2. verify_youtube_url - oEmbed verification
         """
+        import random
+        exclude_urls = exclude_urls or []
         query = f"{search_term} {context}".strip()
         
         print(f"\n[ReAct Agent] ===== Finding video for: '{search_term}' =====")
+        if exclude_urls:
+             print(f"[ReAct Agent] Excluding {len(exclude_urls)} URLs from results")
         
         # STEP 1: Use Direct YouTube Search (most reliable)
+        # Fetch MORE candidates (10) to ensure variety
         print(f"[ReAct Agent] STEP 1: Searching YouTube directly...")
-        results = await self.search_youtube_direct(query, limit=5)
+        results = await self.search_youtube_direct(query, limit=10)
         
         if results:
-            # STEP 2: Verify each result
-            print(f"[ReAct Agent] STEP 2: Verifying {len(results)} results...")
+            # STEP 2: Verify results until we have a pool of candidates
+            valid_candidates = []
+            
+            print(f"[ReAct Agent] STEP 2: Verifying results to build candidate pool...")
             for result in results:
+                # SKIP excluded URLs immediately
+                if result.url in exclude_urls:
+                    print(f"[ReAct Agent] ⏭ Skipping excluded URL: {result.url}")
+                    continue
+
                 is_valid = await self.verify_youtube_url(result.url)
                 if is_valid:
-                    print(f"[ReAct Agent] ✓ SUCCESS: Verified '{result.title[:40]}...'")
-                    print(f"[ReAct Agent] URL: {result.url}")
-                    return result.url
+                    print(f"[ReAct Agent] ✓ Added candidate: '{result.title[:40]}...'")
+                    valid_candidates.append(result.url)
+                    
+                    # Optimization: Stop once we have enough variety (e.g., 3 candidates)
+                    # This prevents checking all 10 if we already have good options
+                    if len(valid_candidates) >= 3:
+                        break
+            
+            if valid_candidates:
+                # STEP 3: Randomly select one to ensure variety on refresh
+                selected_url = random.choice(valid_candidates)
+                print(f"[ReAct Agent] STEP 3: Selected random candidate from {len(valid_candidates)} options")
+                print(f"[ReAct Agent] URL: {selected_url}")
+                return selected_url
             
             # If verification fails (unlikely with direct search), return first result anyway
             # since youtube-search-python returns real video IDs
             print(f"[ReAct Agent] Verification failed but using first result: {results[0].url}")
             return results[0].url
         
-        # STEP 3: Fallback to search URL
+        # STEP 4: Fallback to search URL
         fallback_url = f"https://www.youtube.com/results?search_query={search_term.replace(' ', '+')}"
         print(f"[ReAct Agent] ⚠ Falling back to search URL: {fallback_url}")
         return fallback_url
@@ -565,6 +588,18 @@ def validate_url(url: str) -> bool:
     return False
 
 async def find_single_valid_resource(title: str, description: str, category: str) -> Optional[Resource]:
+    # Check current provider
+    if _current_model_provider == ModelProvider.GROQ:
+        print(f"[Resource Search] Provider is Groq. Using ReAct Agent for {title}")
+        video_url = await react_agent.find_verified_video(f"{title} {category} pregnancy")
+        if video_url:
+             return Resource(
+                title=f"Video: {title}",
+                url=video_url,
+                description=f"Watch this video for {title}"
+            )
+            
+    # Default to Gemini Search if not Groq
     model = "gemini-2.0-flash"
     for attempt in range(2):
         print(f"[Gemini] Repair attempt {attempt+1} for: {title}")
@@ -617,11 +652,44 @@ async def find_single_valid_resource(title: str, description: str, category: str
                 
         except Exception as e:
             print(f"[Gemini] Error in repair loop: {e}")
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                 print(f"[Gemini] 429 Error in repair loop. Falling back to ReAct Agent.")
+                 video_url = await react_agent.find_verified_video(f"{title} {category} pregnancy")
+                 if video_url:
+                     return Resource(
+                        title=f"Video: {title}",
+                        url=video_url,
+                        description=f"Watch this video for {title}"
+                    )
+                 break # Stop retrying Gemini if quota exceeded
             
     return None
 
 async def find_resources_for_activity(title: str, description: str, category: str) -> list[Resource]:
     print(f"[Gemini] Searching resources for: {title}")
+    
+    # Check current provider
+    # Note: _current_model_provider is a global variable managed by set_model_config
+    if _current_model_provider == ModelProvider.GROQ:
+        print(f"[Resource Search] Provider is Groq. Using ReAct Agent to find video.")
+        # Groq doesn't support Google Search tool, so we use ReAct agent to find a video
+        video_url = await react_agent.find_verified_video(f"{title} {category} pregnancy")
+        if video_url:
+            return [Resource(
+                title=f"Video Guide: {title}",
+                url=video_url,
+                description=f"A curated video guide for {title}"
+            )]
+        else:
+             # Fallback to general search link
+            search_query = f"{title} pregnancy activity {category}"
+            search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
+            return [Resource(
+                title=f"Search: {title}",
+                url=search_url,
+                description="Click here to search for this video on Google."
+            )]
+
     model = "gemini-2.0-flash"
 
     prompt = f"""
@@ -685,34 +753,35 @@ async def find_resources_for_activity(title: str, description: str, category: st
             else:
                 print(f"[Gemini] Invalid URL found and removed: {res.url}")
         
-        # Repair Loop: If we don't have enough valid resources, try to find more one by one
+        # Repair Loop
         if len(valid_resources) < 3:
             needed = 3 - len(valid_resources)
-            print(f"[Gemini] Only found {len(valid_resources)} valid resources. Attempting to find {needed} replacements...")
             
             for _ in range(needed):
                 new_res = await find_single_valid_resource(title, description, category)
                 if new_res:
-                    # Avoid duplicates
                     if not any(r.url == new_res.url for r in valid_resources):
                         valid_resources.append(new_res)
         
-        # Fallback if still no valid resources found
         if not valid_resources:
-            print(f"[Gemini] No valid resources found for {title} after repair. Generating fallback search link.")
-            search_query = f"{title} pregnancy activity {category}"
-            search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
-            valid_resources.append(Resource(
-                title=f"Search: {title}",
-                url=search_url,
-                description="Click here to search for this activity on Google."
-            ))
+            raise Exception("No valid resources found")
 
         return valid_resources
 
     except Exception as e:
         print(f"[Gemini] Failed to find resources for {title}: {e}")
-        # Fallback on error
+        
+        # Fallback to ReAct Agent if Gemini fails (e.g. 429 or no results)
+        print(f"[Gemini] Attempting fallback with ReAct Agent...")
+        video_url = await react_agent.find_verified_video(f"{title} {category} pregnancy")
+        if video_url:
+            return [Resource(
+                title=f"Video Guide: {title}",
+                url=video_url,
+                description=f"A gathered video guide for {title}"
+            )]
+
+        # Ultimate Fallback
         search_query = f"{title} pregnancy activity {category}"
         search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
         return [Resource(
@@ -955,7 +1024,7 @@ async def generate_raaga_recommendations() -> Optional[RaagaResponse]:
         raagas_with_links = []
         for raaga in raaga_data.get("raagas", []):
             search_query = f"{raaga['title']} indian classical raaga instrumental for pregnancy"
-            url = await react_agent.find_youtube_video(search_query)
+            url = await react_agent.find_verified_video(search_query)
             raaga['url'] = url
             raagas_with_links.append(raaga)
             
@@ -1022,37 +1091,51 @@ async def get_initial_raagas() -> Optional[RaagaResponse]:
     
     return RaagaResponse(raagas=raagas_with_urls)
 
-async def get_initial_mantras() -> Optional[MantraResponse]:
+async def get_initial_mantras(exclude_urls: List[str] = None) -> Optional[MantraResponse]:
     """
     Uses ReAct agent to find verified YouTube URLs for Mantras.
     The agent uses Gemini's Google Search grounding to extract real URLs,
     then verifies them via oEmbed before returning.
     """
+    import random
     print("\n[Gemini] === Finding Mantra videos using ReAct Agent ===")
     
-    mantra_definitions = [
-        {"id": "gayatri", "title": "Gayatri Mantra", "meaning": "Illumination of intellect", "count": 108},
-        {"id": "om", "title": "Om Chanting", "meaning": "Universal vibration", "count": 21},
-        {"id": "shanti", "title": "Shanti Mantra", "meaning": "Peace for all beings", "count": 11}
+    # Expanded pool of Mantras for variety
+    all_mantra_definitions = [
+        {"id": "gayatri", "title": "Gayatri Mantra", "meaning": "Illumination of intellect", "count": 108, "context": "108 times meditation peaceful chanting"},
+        {"id": "om", "title": "Om Chanting", "meaning": "Universal vibration", "count": 21, "context": "meditation relaxation healing"},
+        {"id": "shanti", "title": "Shanti Mantra", "meaning": "Peace for all beings", "count": 11, "context": "Om Shanti peaceful meditation"},
+        {"id": "mahamrityunjaya", "title": "Mahamrityunjaya Mantra", "meaning": "Victory over fear and death", "count": 108, "context": "Shiva mantra healing protection"},
+        {"id": "ganesh", "title": "Ganesh Mantra", "meaning": "Remover of obstacles", "count": 108, "context": "Om Gan Ganpataye Namah meditation"},
+        {"id": "saraswati", "title": "Saraswati Vandana", "meaning": "Knowledge and Wisdom", "count": 21, "context": "Ya Kundendu Tushar Hara Dhavala study focus"},
+        {"id": "durga", "title": "Durga Mantra", "meaning": "Strength and Protection", "count": 108, "context": "Om Dum Durgaye Namaha protection"},
+        {"id": "vishnu", "title": "Vishnu Sahasranamam", "meaning": "Preservation and Peace", "count": 1, "context": "Vishnu Sahasranamam peaceful chanting"},
+        {"id": "hare_krishna", "title": "Hare Krishna Mantra", "meaning": "Devotion and Joy", "count": 108, "context": "Hare Krishna Hare Rama kirtan meditation"},
+        {"id": "asato_ma", "title": "Asato Ma Sadgamaya", "meaning": "Lead me from ignorance to truth", "count": 11, "context": "Upanishad peace mantra meditation"}
     ]
+    
+    # Select 3 random mantras from the pool
+    # This ensures the SET of mantras changes, not just the videos
+    selected_mantras = random.sample(all_mantra_definitions, 3)
     
     mantras_with_urls = []
     
-    for mantra in mantra_definitions:
+    for mantra in selected_mantras:
         print(f"\n[Gemini] Searching for: {mantra['title']}")
         
-        # Build context-specific search query
-        context = "meditation chanting peaceful"
-        if mantra['id'] == 'gayatri':
-            context = "108 times meditation peaceful chanting"
-        elif mantra['id'] == 'om':
-            context = "meditation relaxation healing"
-        elif mantra['id'] == 'shanti':
-            context = "Om Shanti peaceful meditation"
+        # Use pre-defined context or default
+        context = mantra.get('context', "meditation chanting peaceful")
         
-        url = await react_agent.find_verified_video(mantra['title'], context)
+        url = await react_agent.find_verified_video(mantra['title'], context, exclude_urls=exclude_urls)
         
-        mantra_with_url = {**mantra, "url": url}
+        # Create response object (excluding helper 'context' field)
+        mantra_with_url = {
+            "id": mantra['id'],
+            "title": mantra['title'],
+            "meaning": mantra['meaning'],
+            "count": mantra['count'],
+            "url": url
+        }
         mantras_with_urls.append(mantra_with_url)
         print(f"[Gemini] Final URL for {mantra['title']}: {url}")
     

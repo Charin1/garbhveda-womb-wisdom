@@ -76,10 +76,16 @@ export const getInitialRaagas = async (): Promise<Raaga[] | null> => {
   }
 };
 
-export const getInitialMantras = async (): Promise<Mantra[] | null> => {
-  console.log("[Gemini] Requesting initial mantras...");
+export const getInitialMantras = async (excludeUrls: string[] = []): Promise<Mantra[] | null> => {
+  console.log("[Gemini] Requesting initial mantras...", excludeUrls.length > 0 ? `(excluding ${excludeUrls.length} urls)` : "");
   try {
-    const response = await api.get<{ mantras: Mantra[] }>('/mantras/defaults');
+    const params = new URLSearchParams();
+    params.append("t", Date.now().toString()); // Cache buster
+    excludeUrls.forEach(url => params.append("exclude", url));
+
+    const response = await api.get<{ mantras: Mantra[] }>(`/mantras/defaults`, {
+      params: params
+    });
     return response.data.mantras;
   } catch (error) {
     console.error("[Gemini] Error fetching initial mantras:", error);
