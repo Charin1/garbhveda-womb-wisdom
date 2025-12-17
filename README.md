@@ -80,22 +80,26 @@ The backend handles AI processing and data management.
 The frontend is the user interface of the application.
 
 1.  **Open a NEW terminal window.**
-2.  **Install dependencies:**
+2.  **Navigate to the frontend directory:**
+    ```bash
+    cd frontend
+    ```
+3.  **Install dependencies:**
     ```bash
     npm install
     ```
-3.  **Configure Environment Variables:**
-    *   Create a file named `.env.local` in the root folder.
+4.  **Configure Environment Variables:**
+    *   Create a file named `.env.local` in the **project root folder** (one level up from frontend).
     *   Add your API Keys:
         ```env
         VITE_GEMINI_API_KEY=your_gemini_api_key_here
         GROQ_API_KEY=your_groq_api_key_here  # Optional
         ```
-4.  **Start the Frontend:**
+5.  **Start the Frontend:**
     ```bash
     npm run dev
     ```
-5.  **Open the App:**
+6.  **Open the App:**
     *   Visit `http://localhost:5173` (or the URL shown in the terminal).
 
 ---
