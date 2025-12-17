@@ -1,0 +1,10 @@
+id: vedic_names
+version: v1.0
+owner: content-team
+model_policy: gemini-2.0-flash
+variables:
+  - prompt_intro
+  - gender_instruction
+  - significance_constraint
+  - starting_letter
+  - preference_instruction

@@ -6,11 +6,11 @@ import sys
 # Add project root to path so we can import backend modules (3 levels up: unit -> tests -> backend -> root)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from backend.services import gemini_service
+from backend.services import llm_service
 
 async def test_initial_music():
     print("Testing get_initial_raagas...")
-    raagas = await gemini_service.get_initial_raagas()
+    raagas = await llm_service.get_initial_raagas()
     
     if raagas:
         print("\nSUCCESS: Initial Raagas:")
@@ -24,7 +24,7 @@ async def test_initial_music():
         print("\nFAILED: No initial raagas returned.")
 
     print("\nTesting get_initial_mantras...")
-    mantras = await gemini_service.get_initial_mantras()
+    mantras = await llm_service.get_initial_mantras()
     
     if mantras:
         print("\nSUCCESS: Initial Mantras:")

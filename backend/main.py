@@ -3,7 +3,7 @@ from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .models import DailyCurriculum, DreamInterpretationRequest, DreamInterpretationResponse, AudioGenerationRequest, ImageGenerationRequest, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, AppConfig, ConfigUpdateRequest
-from .services import gemini_service
+from .services import llm_service
 import uvicorn
 import os
 import json
@@ -61,21 +61,21 @@ from typing import Optional
 
 @app.get("/api/curriculum/{week}", response_model=DailyCurriculum)
 async def get_curriculum(week: int, mood: Optional[str] = None):
-    curriculum = await gemini_service.generate_daily_curriculum(week, mood)
+    curriculum = await llm_service.generate_daily_curriculum(week, mood)
     if not curriculum:
         raise HTTPException(status_code=500, detail="Failed to generate curriculum")
     return curriculum
 
 @app.post("/api/dream/interpret", response_model=DreamInterpretationResponse)
 async def interpret_dream(request: DreamInterpretationRequest):
-    interpretation = await gemini_service.interpret_dream(request.dreamText)
+    interpretation = await llm_service.interpret_dream(request.dreamText)
     if not interpretation:
         raise HTTPException(status_code=500, detail="Failed to interpret dream")
     return interpretation
 
 @app.post("/api/generate/audio")
 async def generate_audio(request: AudioGenerationRequest):
-    audio_bytes = await gemini_service.generate_audio(request.text)
+    audio_bytes = await llm_service.generate_audio(request.text)
     if not audio_bytes:
         raise HTTPException(status_code=500, detail="Failed to generate audio")
     
@@ -83,35 +83,35 @@ async def generate_audio(request: AudioGenerationRequest):
 
 @app.post("/api/generate/image")
 async def generate_image(request: ImageGenerationRequest):
-    image_url = await gemini_service.generate_image(request.prompt)
+    image_url = await llm_service.generate_image(request.prompt)
     if not image_url:
         raise HTTPException(status_code=500, detail="Failed to generate image")
     return {"url": image_url}
 
 @app.get("/api/financial-wisdom", response_model=FinancialWisdomResponse)
 async def get_financial_wisdom():
-    wisdom = await gemini_service.generate_financial_wisdom()
+    wisdom = await llm_service.generate_financial_wisdom()
     if not wisdom:
         raise HTTPException(status_code=500, detail="Failed to generate financial wisdom")
     return wisdom
 
 @app.get("/api/rhythmic-math", response_model=RhythmicMathResponse)
 async def get_rhythmic_math():
-    math_activities = await gemini_service.generate_rhythmic_math()
+    math_activities = await llm_service.generate_rhythmic_math()
     if not math_activities:
         raise HTTPException(status_code=500, detail="Failed to generate rhythmic math")
     return math_activities
 
 @app.get("/api/raaga-recommendations", response_model=RaagaResponse)
 async def get_raaga_recommendations():
-    raagas = await gemini_service.generate_raaga_recommendations()
+    raagas = await llm_service.generate_raaga_recommendations()
     if not raagas:
         raise HTTPException(status_code=500, detail="Failed to generate raaga recommendations")
     return raagas
 
 @app.get("/api/raagas/defaults", response_model=RaagaResponse)
 async def get_initial_raagas():
-    raagas = await gemini_service.get_initial_raagas()
+    raagas = await llm_service.get_initial_raagas()
     if not raagas:
         raise HTTPException(status_code=500, detail="Failed to fetch initial raagas")
     return raagas
@@ -124,7 +124,7 @@ async def get_initial_mantras(
     try:
         if exclude:
             print(f"[API] Received request to exclude {len(exclude)} URLs from refresh")
-        mantras = await gemini_service.get_initial_mantras(exclude_urls=exclude)
+        mantras = await llm_service.get_initial_mantras(exclude_urls=exclude)
         if not mantras:
             raise HTTPException(status_code=500, detail="Failed to fetch initial mantras (service returned empty)")
         return mantras
@@ -137,7 +137,7 @@ async def get_initial_mantras(
 
 @app.get("/api/dad-joke")
 async def get_dad_joke():
-    jokes = await gemini_service.generate_dad_joke()
+    jokes = await llm_service.generate_dad_joke()
     if not jokes:
         raise HTTPException(status_code=500, detail="Failed to generate jokes")
     return {"jokes": jokes}
@@ -149,7 +149,7 @@ class NameRequest(BaseModel):
 
 @app.post("/api/vedic-names")
 async def get_vedic_names(request: NameRequest):
-    names = await gemini_service.generate_vedic_names(request.gender, request.starting_letter, request.preference)
+    names = await llm_service.generate_vedic_names(request.gender, request.starting_letter, request.preference)
     if not names:
         # Return empty list instead of error to handle gracefully
         return {"names": []}
@@ -182,9 +182,9 @@ def save_config_to_file(config: AppConfig):
 _app_config = load_config_from_file()
 
 # Apply loaded config to service immediately
-gemini_service.set_model_config(_app_config.model_provider, _app_config.model_name)
+llm_service.set_model_config(_app_config.model_provider, _app_config.model_name)
 if _app_config.groq_api_key:
-    gemini_service.set_groq_api_key(_app_config.groq_api_key)
+    llm_service.set_groq_api_key(_app_config.groq_api_key)
 
 @app.get("/api/config", response_model=AppConfig)
 async def get_config():
@@ -215,8 +215,8 @@ async def update_config(request: ConfigUpdateRequest):
         # If empty string sent, clear it? Or just update. 
         # Assuming empty string means clear or update.
         _app_config.groq_api_key = request.groq_api_key
-        # Update the gemini_service with the new API key
-        gemini_service.set_groq_api_key(request.groq_api_key)
+        # Update the llm_service with the new API key
+        llm_service.set_groq_api_key(request.groq_api_key)
         
     # User details updates
     if request.mother_name is not None:
@@ -226,8 +226,8 @@ async def update_config(request: ConfigUpdateRequest):
     if request.pregnancy_week is not None:
         _app_config.pregnancy_week = request.pregnancy_week
     
-    # Update model provider in gemini_service
-    gemini_service.set_model_config(_app_config.model_provider, _app_config.model_name)
+    # Update model provider in llm_service
+    llm_service.set_model_config(_app_config.model_provider, _app_config.model_name)
     
     # Save to file
     save_config_to_file(_app_config)

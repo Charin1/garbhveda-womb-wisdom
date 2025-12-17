@@ -5,17 +5,17 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from backend.services import gemini_service
+from backend.services import llm_service
 from backend.main import get_initial_mantras
 
 async def test_refresh_variability():
     print("--- Test Run 1 ---")
-    res1 = await gemini_service.get_initial_mantras()
+    res1 = await llm_service.get_initial_mantras()
     titles1 = [m.title for m in res1.mantras]
     print(f"Titles 1: {titles1}")
 
     print("\n--- Test Run 2 ---")
-    res2 = await gemini_service.get_initial_mantras()
+    res2 = await llm_service.get_initial_mantras()
     titles2 = [m.title for m in res2.mantras]
     print(f"Titles 2: {titles2}")
 

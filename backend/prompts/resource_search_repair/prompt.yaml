@@ -1,0 +1,8 @@
+id: resource_search_repair
+version: v1.0
+owner: content-team
+model_policy: gemini-2.0-flash
+variables:
+  - title
+  - category
+  - description

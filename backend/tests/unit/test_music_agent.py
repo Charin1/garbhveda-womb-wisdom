@@ -6,11 +6,11 @@ import sys
 # Add project root to path so we can import backend modules (3 levels up: unit -> tests -> backend -> root)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from backend.services import gemini_service
+from backend.services import llm_service
 
 async def test_raaga_generation():
     print("Testing generate_raaga_recommendations...")
-    raagas = await gemini_service.generate_raaga_recommendations()
+    raagas = await llm_service.generate_raaga_recommendations()
     
     if raagas:
         print("\nSUCCESS: Generated Raagas:")

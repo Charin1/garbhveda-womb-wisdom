@@ -5,6 +5,7 @@ import requests
 import httpx
 from google import genai
 from google.genai import types
+from fastapi import HTTPException
 from dotenv import load_dotenv
 from ..models import DailyCurriculum, Activity, DreamInterpretationRequest, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, Sankalpa
 from ..util.logger import setup_logger
@@ -335,19 +336,12 @@ class ReActYouTubeAgent:
         if bad_urls:
             exclude_instruction = f"\n\nThese URLs are broken, do NOT suggest them: {', '.join(bad_urls[:5])}"
         
-        prompt = f"""
-Search YouTube for: "{query}"
-
-I need you to find REAL YouTube video URLs using Google Search. 
-Look for actual YouTube video watch pages (URLs containing youtube.com/watch?v=).
-{exclude_instruction}
-
-List the YouTube video URLs you find. For each, write:
-URL: https://www.youtube.com/watch?v=XXXXX
-Title: [Video title]
-
-Find at least 3 different YouTube videos.
-"""
+        from ..util.prompt_loader import prompt_loader
+        from jinja2 import Template
+        
+        template_str = prompt_loader.get_template("react_youtube_search")
+        template = Template(template_str)
+        prompt = template.render(query=query, exclude_instruction=exclude_instruction)
         
         print(f"[ReAct Agent] Searching: {query}")
         
@@ -471,34 +465,12 @@ async def generate_daily_curriculum(week: int, mood: Optional[str] = None) -> Op
     if mood:
         mood_instruction = f"The mother is feeling {mood}. Customize the activities and Sankalpa to support this emotional state (e.g., if Tired -> Restorative, if Anxious -> Calming, if Happy -> Celebrating)."
 
-    content_prompt = f"""
-    Generate a daily Garbh Sanskar curriculum for Pregnancy Week {week}.
-    {mood_instruction}
+    from ..util.prompt_loader import prompt_loader
+    from jinja2 import Template
 
-    1. **Sankalpa (Intention)**: A virtue for the day (e.g., Compassion, Courage) with a short mantra.
-    2. **Activities**: Provide exactly 4 distinct activities:
-       - One MATH/LOGIC activity (Einstein Hour). MUST include a puzzle and its solution.
-       - One ART/CREATIVITY activity (Visualization or Art idea).
-       - One SPIRITUALITY activity (Sloka or Moral Story).
-       - One BONDING activity (Garbh Samvad - talk to baby prompt).
-
-    Return ONLY the JSON object with this exact structure:
-    {{
-      "sankalpa": {{ "virtue": "...", "description": "...", "mantra": "..." }},
-      "activities": [
-        {{
-          "id": "unique_id",
-          "category": "MATH" | "ART" | "SPIRITUALITY" | "BONDING",
-          "title": "...",
-          "description": "...",
-          "durationMinutes": 15,
-          "content": "...",
-          "solution": "...",
-          "resources": [] 
-        }}
-      ]
-    }}
-    """
+    template_str = prompt_loader.get_template("daily_curriculum")
+    template = Template(template_str)
+    content_prompt = template.render(week=week, mood_instruction=mood_instruction)
 
     try:
         # Use simple generate (sync) for now as wrappers handle sync/async internally if needed
@@ -603,17 +575,9 @@ async def find_single_valid_resource(title: str, description: str, category: str
     model = "gemini-2.0-flash"
     for attempt in range(2):
         print(f"[Gemini] Repair attempt {attempt+1} for: {title}")
-        prompt = f"""
-        Find EXACTLY ONE high-quality, ACTIVE, and WORKING external resource (YouTube video, article, or blog) for:
-        
-        Activity: {title}
-        Category: {category}
-        Description: {description}
-
-        CRITICAL:
-        1. Use Google Search to find a REAL, VALID link.
-        2. Return ONLY a raw JSON object: {{ "title": "...", "url": "...", "description": "..." }}
-        """
+        template_str = prompt_loader.get_template("resource_search_repair")
+        template = Template(template_str)
+        prompt = template.render(title=title, category=category, description=description)
         
         try:
             response = client.models.generate_content(
@@ -692,25 +656,9 @@ async def find_resources_for_activity(title: str, description: str, category: st
 
     model = "gemini-2.0-flash"
 
-    prompt = f"""
-    Find 3-5 high-quality, ACTIVE, and WORKING external resources (YouTube videos, articles, blogs) for this pregnancy activity:
-    
-    Activity: {title}
-    Category: {category}
-    Description: {description}
-
-    CRITICAL INSTRUCTIONS:
-    1. Use the Google Search tool to find REAL content.
-    2. Return ONLY valid URLs found in the search.
-    3. If you can't find good links, return an empty list.
-    
-    Return ONLY a raw JSON object (no markdown formatting if possible) with this structure:
-    {{
-      "resources": [
-        {{ "title": "...", "url": "...", "description": "..." }}
-      ]
-    }}
-    """
+    template_str = prompt_loader.get_template("resource_search_list")
+    template = Template(template_str)
+    prompt = template.render(title=title, category=category, description=description)
 
     try:
         response = client.models.generate_content(
@@ -791,21 +739,9 @@ async def find_resources_for_activity(title: str, description: str, category: st
         )]
 
 async def interpret_dream(dream_text: str) -> Optional[DreamInterpretationResponse]:
-    prompt = f"""
-      A pregnant woman has recorded this dream: "{dream_text}".
-      
-      Please provide:
-      1. A gentle, positive interpretation. Frame even weird or anxious dreams as the subconscious processing changes or releasing fears. Focus on growth, protection, and love.
-      2. A short, calming positive affirmation related to the dream.
-      
-      Keep the tone soothing, maternal, and wise.
-      
-      Return ONLY a JSON object with this structure:
-      {{
-        "interpretation": "Interpretation text...",
-        "affirmation": "Affirmation text..."
-      }}
-    """
+    template_str = prompt_loader.get_template("interpret_dream")
+    template = Template(template_str)
+    prompt = template.render(dream_text=dream_text)
 
     try:
         wrapper = _get_llm_wrapper(None, None)
@@ -858,22 +794,16 @@ async def generate_audio(text: str) -> Optional[bytes]:
         return None
 
     except Exception as e:
+        error_str = str(e)
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            print(f"[Gemini] Quota exceeded for audio generation: {e}")
+            raise HTTPException(status_code=429, detail="Audio generation quota exceeded. Please try again in 1 minute.")
         print(f"[Gemini] Error generating audio: {e}")
         return None
 
 async def generate_dad_joke() -> List[str]:
     print("[Gemini] Generating batch of 50 dad jokes...")
-    prompt = """
-    Generate 50 distinct "dad jokes".
-    Constraints:
-    1. STRICTLY CLEAN and FAMILY FRIENDLY (No "non-veg", no adult themes).
-    2. SIMPLE language (easy to understand).
-    3. FUNNY and lighthearted.
-    4. Short and punchy.
-    
-    Return a JSON object with a single key "jokes" containing a list of strings.
-    Example: {"jokes": ["Joke 1", "Joke 2", ...]}
-    """
+    prompt = prompt_loader.get_template("dad_joke")
     try:
         wrapper = _get_llm_wrapper(None, None)
         if not wrapper:
@@ -918,23 +848,7 @@ async def generate_image(prompt: str) -> Optional[str]:
 
 async def generate_financial_wisdom() -> Optional[FinancialWisdomResponse]:
     print("[Gemini] Generating financial wisdom...")
-    prompt = """
-    Generate 1 practical financial tip for new parents.
-    Focus on saving, budgeting for baby, or investment.
-    
-    Return JSON with structure:
-    {
-      "tips": [
-        {
-          "id": "unique_id",
-          "title": "Title",
-          "content": "Explanation and actionable step combined.",
-          "icon": "PiggyBank" 
-        }
-      ]
-    }
-    Allowed icons: "PiggyBank", "TrendingUp", "DollarSign", "Wallet", "CreditCard"
-    """
+    prompt = prompt_loader.get_template("financial_wisdom")
     try:
         wrapper = _get_llm_wrapper(None, None)
         if not wrapper:
@@ -953,22 +867,7 @@ async def generate_financial_wisdom() -> Optional[FinancialWisdomResponse]:
 async def generate_rhythmic_math() -> Optional[RhythmicMathResponse]:
     print("[Gemini] Generating rhythmic math activities...")
     
-    prompt = """
-    Generate 3 distinct Rhythmic Math activities for prenatal education.
-    These should combine math concepts (like tables, sequences, primes) with rhythm (beats, instruments).
-    
-    Return ONLY a JSON object with this structure:
-    {
-      "activities": [
-        {
-          "id": "unique_id",
-          "title": "Creative Title (e.g., Table of 2 (Tabla Beat))",
-          "duration": "MM:SS",
-          "bpm": 60-120
-        }
-      ]
-    }
-    """
+    prompt = prompt_loader.get_template("rhythmic_math")
 
     try:
         wrapper = _get_llm_wrapper(None, None)
@@ -990,23 +889,7 @@ async def generate_raaga_recommendations() -> Optional[RaagaResponse]:
     print("[Gemini] Generating Raaga recommendations...")
     
     # Updated prompt: We don't ask for URLs here, just the Raaga details
-    prompt = """
-    Generate 3 distinct Indian Classical Raagas suitable for pregnancy (Garbh Sanskar).
-    Include the time of day they are best listened to and their specific benefits for the mother and baby.
-    
-    Return ONLY a JSON object with this structure:
-    {
-      "raagas": [
-        {
-          "id": "unique_id (e.g., yaman, bhairavi)",
-          "title": "Raag Name",
-          "time": "Time of Day (e.g., Morning, Evening)",
-          "benefit": "Short benefit description",
-          "duration": "Suggested duration (e.g., 15:00)"
-        }
-      ]
-    }
-    """
+    prompt = prompt_loader.get_template("raaga_recommendations")
 
     try:
         wrapper = _get_llm_wrapper(None, None)
@@ -1169,19 +1052,15 @@ async def generate_vedic_names(gender: str, starting_letter: Optional[str] = Non
         prompt_intro = "modern, trendy Indian names with Sanskrit roots"
         significance_constraint = "Names should have a beautiful meaning and contemporary appeal."
 
-    prompt = f"""
-    Generate 5 unique, meaningful {prompt_intro} for {gender_instruction}.
-    Constraints:
-    1. {significance_constraint}
-    2. Provide the meaning and origin for each.
-    3. If starting letter is provided ({starting_letter}), you MUST STRICTLY ONLY generate names starting with {starting_letter}. Do NOT provide names with other letters.
-    4. {preference_instruction}
-    5. If Gender is Unisex, ensure the names are truly gender-neutral and commonly used for both.
-    
-    Return a JSON object with a key "names" containing a list of objects.
-    Each object should have: "name", "meaning", "origin", "significance".
-    Example: {{"names": [{{"name": "Aarav", "meaning": "Peaceful", "origin": "Sanskrit", "significance": "Represents calm"}} ]}}
-    """
+    template_str = prompt_loader.get_template("vedic_names")
+    template = Template(template_str)
+    prompt = template.render(
+        prompt_intro=prompt_intro,
+        gender_instruction=gender_instruction,
+        significance_constraint=significance_constraint,
+        starting_letter=starting_letter,
+        preference_instruction=preference_instruction
+    )
     
     try:
         wrapper = _get_llm_wrapper(None, None)
