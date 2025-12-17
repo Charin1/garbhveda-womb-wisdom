@@ -171,13 +171,36 @@ A dedicated experience for fathers to be an active part of the pregnancy journey
 
 ---
 
+## 🔒 Security
+
+*   **Authentication**: API Key protection via `X-API-Key` header (configurable via `API_ACCESS_KEY` env var).
+*   **CORS Policy**: Restricted to local development ports (3000, 5173).
+*   **Environment Variables**: Sensitive keys (Gemini, Groq) managed via `.env` files and never exposed to the client.
+
 ## 🛠️ Tech Stack
 
-- **Frontend**: React, Vite, TypeScript, Tailwind CSS
-- **AI Integration**: Google Gemini API + Groq (LLaMA, Qwen models)
-- **Backend API**: Python FastAPI with LLM Factory pattern
-- **Icons**: Lucide React
-- **State Management**: React Hooks & Local Storage persistence
+### Backend (Python)
+*   **Framework**: FastAPI (High-performance web framework)
+*   **Server**: Uvicorn (ASGI server)
+*   **AI Integration**:
+    *   **Google Gemini**: `google-genai` SDK for multimodal generation (text, audio, vision).
+    *   **Groq**: `groq` SDK for high-speed inference (Llama 3, Mixtral).
+*   **Prompt Management**:
+    *   **Jinja2**: Templating engine for dynamic prompts.
+    *   **PyYAML**: For structured prompt metadata.
+*   **Utilities**: `python-dotenv` for environment configuration.
+
+### Frontend (React)
+*   **Core**: React 18+, Vite (Build tool)
+*   **Styling**: Tailwind CSS (Utility-first styling), Framer Motion (Animations)
+*   **Icons**: Lucide React
+*   **State Management**: React Hooks
+*   **API Client**: Axios
+
+### Services & Tools
+*   **LLM Service**: Custom factory pattern (`llm_service.py`) switching between Gemini and Groq.
+*   **Prompt Loader**: Custom utility to load prompts from Markdown/YAML.
+*   **YouTube Search**: ReAct Agent using Gemini Grounding / Web Scraping for finding valid resources.
 
 ---
 
