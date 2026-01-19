@@ -94,6 +94,12 @@ The frontend is the user interface of the application.
         ```env
         VITE_GEMINI_API_KEY=your_gemini_api_key_here
         GROQ_API_KEY=your_groq_api_key_here  # Optional
+        
+        # Security Keys (Must match in backend)
+        # You can use any random string as your key here
+        # IMPORTANT: Both keys MUST be identical for authentication to work
+        API_ACCESS_KEY=your_secret_password_here
+        VITE_API_ACCESS_KEY=your_secret_password_here
         ```
 5.  **Start the Frontend:**
     ```bash
