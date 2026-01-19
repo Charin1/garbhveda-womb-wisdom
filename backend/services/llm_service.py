@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from ..models import DailyCurriculum, Activity, DreamInterpretationRequest, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, Sankalpa
 from ..util.logger import setup_logger
 from .llm_factory import LLMFactory, LLMConfig, ModelProvider
+from ..util.prompt_loader import prompt_loader
 
 logger = setup_logger("gemini_service")
 
