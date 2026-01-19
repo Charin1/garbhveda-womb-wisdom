@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 from fastapi import HTTPException
 from dotenv import load_dotenv
+from jinja2 import Template
 from ..models import DailyCurriculum, Activity, DreamInterpretationRequest, DreamInterpretationResponse, Resource, FinancialWisdomResponse, RhythmicMathResponse, RaagaResponse, MantraResponse, Sankalpa
 from ..util.logger import setup_logger
 from .llm_factory import LLMFactory, LLMConfig, ModelProvider
